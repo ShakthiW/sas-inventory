@@ -43,21 +43,61 @@ export type ProductSearchProps = {
 
 export default function ProductSearch({ onSelect }: ProductSearchProps) {
   const [query, setQuery] = React.useState("");
+  const [page, setPage] = React.useState(1);
+  const [limit] = React.useState(8);
   const [loading, setLoading] = React.useState(false);
   const [rows, setRows] = React.useState<ProductRow[]>([]);
+  const [meta, setMeta] = React.useState<{
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+    hasNext: boolean;
+    hasPrev: boolean;
+  } | null>(null);
+  const [isPending, startTransition] = React.useTransition();
+  const controllerRef = React.useRef<AbortController | null>(null);
+  const cacheRef = React.useRef(
+    new Map<string, { rows: ProductRow[]; meta: NonNullable<typeof meta> }>()
+  );
 
   const fetchProducts = React.useCallback(async () => {
+    const key = `${query}||${page}||${limit}`;
+    const cached = cacheRef.current.get(key);
+    if (cached) {
+      startTransition(() => {
+        setRows(cached.rows);
+        setMeta(cached.meta);
+      });
+      return;
+    }
+
+    controllerRef.current?.abort();
+    const controller = new AbortController();
+    controllerRef.current = controller;
+
     setLoading(true);
     try {
       const params = new URLSearchParams({
         q: query,
-        page: "1",
-        limit: "8",
+        page: String(page),
+        limit: String(limit),
         sort: "name",
         dir: "asc",
       });
-      const res = await fetch(`/api/inventory/products?${params.toString()}`);
-      const json: ApiResponse = await res.json();
+      const res = await fetch(`/api/inventory/products?${params.toString()}`, {
+        signal: controller.signal,
+      });
+      const json: ApiResponse & {
+        meta?: {
+          total: number;
+          page: number;
+          limit: number;
+          pages: number;
+          hasNext: boolean;
+          hasPrev: boolean;
+        };
+      } = await res.json();
       const mapped: ProductRow[] = (json.data || []).map((d) => ({
         id: (d.id || d._id || "") as string,
         name: d.name,
@@ -71,18 +111,42 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
             : undefined,
         quantity: d?.pricing?.quantity,
       }));
-      setRows(mapped);
+      const nextMeta = json.meta || {
+        total: mapped.length,
+        page,
+        limit,
+        pages: 1,
+        hasNext: false,
+        hasPrev: false,
+      };
+      startTransition(() => {
+        setRows(mapped);
+        setMeta(nextMeta);
+      });
+      cacheRef.current.set(key, { rows: mapped, meta: nextMeta });
+    } catch (err) {
+      // Ignore abort errors from cancelled in-flight requests
+      if (err instanceof DOMException && err.name === "AbortError") {
+        // no-op
+      } else {
+        // swallow other errors for now
+      }
     } finally {
       setLoading(false);
     }
+  }, [query, page, limit]);
+
+  // Reset to first page when query changes
+  React.useEffect(() => {
+    setPage(1);
   }, [query]);
 
   React.useEffect(() => {
     const t = setTimeout(() => {
-      fetchProducts();
-    }, 300);
+      void fetchProducts();
+    }, 250);
     return () => clearTimeout(t);
-  }, [query, fetchProducts]);
+  }, [query, page, fetchProducts]);
 
   return (
     <div className="w-full">
@@ -93,7 +157,12 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
           placeholder="Search product name, sku…"
           className="h-11"
         />
-        <Button onClick={fetchProducts} variant="outline" className="h-11">
+        <Button
+          onClick={fetchProducts}
+          variant="outline"
+          className="h-11"
+          disabled={loading || isPending}
+        >
           Search
         </Button>
       </div>
@@ -160,6 +229,34 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between text-sm">
+        <div className="text-muted-foreground">
+          {meta
+            ? `Page ${meta.page} of ${meta.pages} · ${meta.total} results`
+            : rows.length > 0
+            ? `Showing ${rows.length} results`
+            : ""}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading || isPending || !meta?.hasPrev}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Prev
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading || isPending || !meta?.hasNext}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );

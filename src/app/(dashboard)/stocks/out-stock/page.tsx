@@ -1,14 +1,321 @@
+"use client";
+
 import React from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import dynamic from "next/dynamic";
+import { toast } from "sonner";
+
+const ProductSearch = dynamic(
+  () => import("@/components/stock/addStock/ProductSearch"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="rounded-md border p-3 text-sm text-muted-foreground">
+        Loading search…
+      </div>
+    ),
+  }
+);
+
+type CartItem = {
+  productId: string;
+  name: string;
+  sku?: string;
+  unit?: string;
+  quantity: number;
+  unitPrice?: number;
+};
+
+type ProductsApiResponse = {
+  data: Array<{
+    id?: string;
+    _id?: string;
+    name: string;
+    sku?: string;
+    pricing?: { price?: number; quantity?: number };
+  }>;
+};
 
 export default function Page() {
+  const [qr, setQr] = React.useState("");
+  const [cart, setCart] = React.useState<CartItem[]>([]);
+  const [isPending, startTransition] = React.useTransition();
+  const [committing, setCommitting] = React.useState(false);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const addProductToCart = React.useCallback(
+    (p: { id: string; name: string; sku?: string; price?: number }) => {
+      startTransition(() => {
+        setCart((prev) => {
+          const idx = prev.findIndex((it) => it.productId === p.id);
+          if (idx >= 0) {
+            const copy = [...prev];
+            copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
+            return copy;
+          }
+          return [
+            ...prev,
+            {
+              productId: p.id,
+              name: p.name,
+              sku: p.sku,
+              unit: undefined,
+              quantity: 1,
+              unitPrice: p.price,
+            },
+          ];
+        });
+      });
+    },
+    [startTransition]
+  );
+
+  const resolveProductByCode = React.useCallback(async (code: string) => {
+    try {
+      const params = new URLSearchParams({ q: code, page: "1", limit: "8" });
+      const res = await fetch(`/api/inventory/products?${params.toString()}`);
+      const json: ProductsApiResponse = await res.json();
+      const rows = json?.data || [];
+      if (rows.length === 0) return null;
+      // Prefer exact SKU match; else fallback to first result
+      const exact = rows.find((r) => (r.sku || "").trim() === code);
+      const chosen = exact || rows[0];
+      return {
+        id: (chosen.id || chosen._id || code) as string,
+        name: chosen.name,
+        sku: chosen.sku,
+        price: chosen?.pricing?.price,
+      } as { id: string; name: string; sku?: string; price?: number };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const handleQrSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = qr.trim();
+    if (!code) return;
+    const product = await resolveProductByCode(code);
+    if (product) {
+      addProductToCart(product);
+      toast.success("Added to out stock", { description: product.name });
+    } else {
+      addProductToCart({ id: code, name: `Scanned: ${code}` });
+      toast.message("Scanned code added", { description: code });
+    }
+    setQr("");
+    // Keep focus for next scan
+    inputRef.current?.focus();
+  };
+
+  const increment = (index: number) => {
+    startTransition(() => {
+      setCart((prev) => {
+        const copy = [...prev];
+        copy[index] = { ...copy[index], quantity: copy[index].quantity + 1 };
+        return copy;
+      });
+    });
+  };
+
+  const decrement = (index: number) => {
+    startTransition(() => {
+      setCart((prev) => {
+        const copy = [...prev];
+        const nextQty = Math.max(0, copy[index].quantity - 1);
+        if (nextQty === 0) {
+          copy.splice(index, 1);
+          return copy;
+        }
+        copy[index] = { ...copy[index], quantity: nextQty };
+        return copy;
+      });
+    });
+  };
+
+  const removeAt = (index: number) => {
+    startTransition(() => {
+      setCart((prev) => prev.filter((_, i) => i !== index));
+    });
+  };
+
+  const subtotal = React.useMemo(
+    () => cart.reduce((sum, it) => sum + (it.unitPrice || 0) * it.quantity, 0),
+    [cart]
+  );
+
+  const handleUpdateStocks = async () => {
+    if (cart.length === 0 || committing) return;
+    setCommitting(true);
+    try {
+      const res = await fetch("/api/stocks/out-stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: cart }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        const msg = err?.error || `Request failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const json = await res.json();
+      toast.success("Stocks updated", {
+        description: json?.batchId ? `Batch ${json.batchId}` : undefined,
+      });
+      setCart([]);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unexpected error";
+      toast.error("Failed to update stocks", { description: message });
+    } finally {
+      setCommitting(false);
+    }
+  };
+
   return (
-    <div className="flex flex-1 flex-col gap-4 p-4">
-      <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-        <div className="bg-muted/50 aspect-video rounded-xl" />
-        <div className="bg-muted/50 aspect-video rounded-xl" />
-        <div className="bg-muted/50 aspect-video rounded-xl" />
+    <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 h-[calc(100vh-4rem)]">
+      <div className="grid gap-4 md:grid-cols-3 h-full min-h-0">
+        {/* Left: QR + Product Search */}
+        <div className="md:col-span-2 flex min-h-0 flex-col gap-4">
+          <div className="rounded-xl border p-4">
+            <div className="text-sm font-medium mb-2">QR / Barcode</div>
+            <form onSubmit={handleQrSubmit} className="flex items-center gap-2">
+              <Input
+                ref={inputRef}
+                value={qr}
+                onChange={(e) => setQr(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Tab") {
+                    e.preventDefault();
+                    // Trigger submit for keyboard-wedge scanners
+                    void handleQrSubmit(e as unknown as React.FormEvent);
+                  }
+                }}
+                placeholder="Scan or enter code…"
+                className="h-11"
+                autoFocus
+              />
+              <Button type="submit" className="h-11" disabled={isPending}>
+                Add
+              </Button>
+            </form>
+            <div className="text-xs text-muted-foreground mt-2">
+              Focus the input and scan a QR/barcode to add.
+            </div>
+          </div>
+
+          <div className="rounded-xl border p-4 flex-1 min-h-0 flex flex-col">
+            <div className="text-sm font-medium mb-2">Find Products</div>
+            <div className="flex-1 min-h-0 overflow-auto">
+              <ProductSearch
+                onSelect={(p) => {
+                  addProductToCart({
+                    id: p.id,
+                    name: p.name,
+                    sku: p.sku,
+                    price: p.price,
+                  });
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Cart */}
+        <div className="rounded-xl border p-4 flex min-h-0 flex-col">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-sm font-medium">Out Stock Items</div>
+            <div className="text-sm text-muted-foreground">
+              Items: {cart.length} · Subtotal: {subtotal}
+            </div>
+          </div>
+          <div className="rounded-md border flex-1 min-h-0 overflow-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/40">
+                  <TableHead>Product</TableHead>
+                  <TableHead>SKU</TableHead>
+                  <TableHead className="w-[160px]">Quantity</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {cart.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="h-20 text-center">
+                      No items yet. Scan or search to add.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  cart.map((it, idx) => (
+                    <TableRow key={`${it.productId}-${idx}`}>
+                      <TableCell className="font-medium">{it.name}</TableCell>
+                      <TableCell>{it.sku || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => decrement(idx)}
+                            disabled={isPending}
+                          >
+                            −
+                          </Button>
+                          <Input
+                            className="h-9 w-16 text-center cursor-default select-none"
+                            type="text"
+                            readOnly
+                            value={it.quantity}
+                            onKeyDown={(e) => e.preventDefault()}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => increment(idx)}
+                            disabled={isPending}
+                          >
+                            +
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => removeAt(idx)}
+                          disabled={isPending}
+                        >
+                          Remove
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Review items and click update when ready.
+            </div>
+            <Button
+              disabled={cart.length === 0 || isPending || committing}
+              onClick={handleUpdateStocks}
+            >
+              Update Stocks
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="bg-muted/50 min-h-[100vh] flex-1 rounded-xl md:min-h-min" />
     </div>
   );
 }
