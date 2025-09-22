@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import type { BrandListItem } from "@/lib/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -29,14 +30,7 @@ import AddBrandsDialog from "./AddBrandsDialog";
 import Image from "next/image";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
 
-type BrandRow = {
-  id: string;
-  name: string;
-  description?: string;
-  logoUrl?: string;
-  isActive?: boolean;
-  createdAt?: string;
-};
+type BrandRow = BrandListItem;
 
 type ApiResponse = {
   data: Array<{

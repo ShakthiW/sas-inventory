@@ -162,7 +162,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
           })
           .filter((v): v is Option => v !== null);
         if (mounted) setSubCategoryOptions(subs);
-      } catch(e) {
+      } catch (e) {
         // ignore
         console.error(e);
       }

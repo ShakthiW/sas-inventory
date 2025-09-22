@@ -1,7 +1,11 @@
 "use client";
 
 import React from "react";
-import type { ProductListItem } from "@/lib/types";
+import type {
+  ProductListItem,
+  ProductCardItem,
+  CategoryOption,
+} from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,18 +24,6 @@ import {
 } from "@/components/ui/card";
 import Image from "next/image";
 
-type ProductRow = {
-  id: string;
-  name: string;
-  sku?: string;
-  category?: string;
-  brand?: string;
-  price?: number;
-  image?: string;
-  quantity?: number;
-  unit?: string;
-};
-
 type ProductsResponse = {
   data: ProductListItem[];
   meta: {
@@ -44,7 +36,7 @@ type ProductsResponse = {
   };
 };
 
-type Category = { id: string; name: string };
+type Category = CategoryOption;
 
 export type ProductBrowserProps = {
   onSelect(product: {
@@ -70,7 +62,7 @@ export default function ProductBrowser({
   const [page, setPage] = React.useState(1);
   const [limit] = React.useState(15);
   const [loading, setLoading] = React.useState(false);
-  const [allRows, setAllRows] = React.useState<ProductRow[]>([]);
+  const [allRows, setAllRows] = React.useState<ProductCardItem[]>([]);
 
   React.useEffect(() => {
     const fetchCategories = async () => {
@@ -103,7 +95,7 @@ export default function ProductBrowser({
       });
       const res = await fetch(`/api/inventory/products?${params.toString()}`);
       const json: ProductsResponse = await res.json();
-      const mapped: ProductRow[] = (json.data || []).map((d) => ({
+      const mapped: ProductCardItem[] = (json.data || []).map((d) => ({
         id: (d.id || d._id || "") as string,
         name: d.name,
         sku: d.sku,

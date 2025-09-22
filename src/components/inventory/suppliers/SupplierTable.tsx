@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import type { SupplierListItem } from "@/lib/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -28,13 +29,7 @@ import {
 import AddSupplierDialog from "./AddSupplierDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
 
-type SupplierRow = {
-  id: string;
-  name: string;
-  phone?: string;
-  isActive?: boolean;
-  createdAt?: string;
-};
+type SupplierRow = SupplierListItem;
 
 type ApiResponse = {
   data: Array<{

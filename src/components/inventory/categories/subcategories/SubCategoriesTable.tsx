@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import type { SubCategoryListItem } from "@/lib/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -28,16 +29,7 @@ import {
 import AddSubCategoryDialog from "./AddSubCategoryDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
 
-type Row = {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string;
-  isActive?: boolean;
-  parentCategoryId: string;
-  parentCategoryName?: string;
-  createdAt?: string;
-};
+type Row = SubCategoryListItem;
 
 type ApiResponse = {
   data: Array<{

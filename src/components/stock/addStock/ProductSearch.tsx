@@ -12,33 +12,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { ListResponse, ProductListItem } from "@/lib/types";
 
-type ProductRow = {
-  id: string;
-  name: string;
-  sku?: string;
-  category?: string;
-  brand?: string;
-  price?: number;
-  image?: string;
-  quantity?: number;
-};
-
-type ApiResponse = {
-  data: Array<{
-    id?: string;
-    _id?: string;
-    name: string;
-    sku?: string;
-    category?: string;
-    brand?: string;
-    pricing?: { price?: number; quantity?: number };
-    images?: string[];
-  }>;
-};
+type ApiResponse = ListResponse<ProductListItem>;
 
 export type ProductSearchProps = {
-  onSelect(product: ProductRow): void;
+  onSelect(product: ProductListItem): void;
 };
 
 export default function ProductSearch({ onSelect }: ProductSearchProps) {
@@ -46,7 +25,7 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
   const [page, setPage] = React.useState(1);
   const [limit] = React.useState(8);
   const [loading, setLoading] = React.useState(false);
-  const [rows, setRows] = React.useState<ProductRow[]>([]);
+  const [rows, setRows] = React.useState<ProductListItem[]>([]);
   const [meta, setMeta] = React.useState<{
     total: number;
     page: number;
@@ -58,7 +37,10 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
   const [isPending, startTransition] = React.useTransition();
   const controllerRef = React.useRef<AbortController | null>(null);
   const cacheRef = React.useRef(
-    new Map<string, { rows: ProductRow[]; meta: NonNullable<typeof meta> }>()
+    new Map<
+      string,
+      { rows: ProductListItem[]; meta: NonNullable<typeof meta> }
+    >()
   );
 
   const fetchProducts = React.useCallback(async () => {
@@ -98,18 +80,10 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
           hasPrev: boolean;
         };
       } = await res.json();
-      const mapped: ProductRow[] = (json.data || []).map((d) => ({
+      const mapped: ProductListItem[] = (json.data || []).map((d) => ({
+        ...d,
         id: (d.id || d._id || "") as string,
-        name: d.name,
-        sku: d.sku,
-        category: d.category,
-        brand: d.brand,
-        price: d?.pricing?.price,
-        image:
-          Array.isArray(d.images) && d.images.length > 0
-            ? d.images[0]
-            : undefined,
-        quantity: d?.pricing?.quantity,
+        _id: undefined,
       }));
       const nextMeta = json.meta || {
         total: mapped.length,
@@ -198,8 +172,8 @@ export default function ProductSearch({ onSelect }: ProductSearchProps) {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-10">
-                          {row.image ? (
-                            <AvatarImage src={row.image} alt={row.name} />
+                          {row.images?.[0] ? (
+                            <AvatarImage src={row.images[0]} alt={row.name} />
                           ) : (
                             <AvatarFallback className="text-xs">
                               {fallback}

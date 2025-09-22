@@ -27,17 +27,9 @@ import {
 } from "@/components/ui/select";
 import AddUnitsOfMeasureDialog from "./AddUnitsOfMeasureDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
+import type { UnitListItem } from "@/lib/types";
 
-type Row = {
-  id: string;
-  name: string;
-  shortName?: string;
-  kind: "base" | "pack";
-  isActive?: boolean;
-  baseUnitName?: string;
-  unitsPerPack?: number;
-  createdAt?: string;
-};
+type Row = UnitListItem;
 
 type ApiResponse = {
   data: Array<{
@@ -106,7 +98,7 @@ export default function UnitsOfMeasureTable() {
         id: (d.id || d._id || "") as string,
         name: d.name,
         shortName: d.shortName,
-        kind: (d.kind as Row["kind"]) || "base",
+        kind: (d.kind === "pack" ? "pack" : "base") as Row["kind"],
         isActive: d.isActive,
         baseUnitName: d.baseUnitName,
         unitsPerPack: d.unitsPerPack,
