@@ -96,6 +96,10 @@ const data = {
           title: "Stock Transfers",
           url: "/stocks/stock-transfers",
         },
+        {
+          title: "History",
+          url: "/stocks/history",
+        },
       ],
     },
   ],
