@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useEffect } from "react";
+import React from "react";
 import type { ProductInformationForm } from "@/lib/types";
 import {
   Form,
@@ -25,26 +26,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-const categories = [
-  { label: "Electronics", value: "electronics" },
-  { label: "Clothing", value: "clothing" },
-  { label: "Furniture", value: "furniture" },
-  { label: "Other", value: "other" },
-];
-
-const subCategories = [
-  { label: "Electronics", value: "electronics" },
-  { label: "Clothing", value: "clothing" },
-  { label: "Furniture", value: "furniture" },
-  { label: "Other", value: "other" },
-];
-
-const brands = [
-  { label: "Electronics", value: "electronics" },
-  { label: "Clothing", value: "clothing" },
-  { label: "Furniture", value: "furniture" },
-  { label: "Other", value: "other" },
-];
+type Option = { label: string; value: string };
 
 const formSchema = z.object({
   name: z.string().min(1).min(3),
@@ -62,6 +44,13 @@ type ProductInformationProps = {
 };
 
 export default function MyForm({ onChange }: ProductInformationProps) {
+  const [categoryOptions, setCategoryOptions] = React.useState<Option[]>([]);
+  const [brandOptions, setBrandOptions] = React.useState<Option[]>([]);
+  const [subCategoryOptions, setSubCategoryOptions] = React.useState<Option[]>(
+    []
+  );
+  // Removed loading flag to avoid unused var while keeping simple UX
+
   const form = useForm<ProductInformationForm>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -88,6 +77,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
   };
 
   const watchedName = form.watch("name");
+  const watchedCategory = form.watch("category");
 
   useEffect(() => {
     if (typeof watchedName === "string") {
@@ -106,6 +96,82 @@ export default function MyForm({ onChange }: ProductInformationProps) {
     onChange(form.getValues());
     return () => subscription.unsubscribe();
   }, [form, onChange]);
+
+  // Fetch categories and brands once
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const [catRes, brandRes] = await Promise.all([
+          fetch("/api/inventory/categories?limit=200&sort=name&dir=asc"),
+          fetch("/api/inventory/brands?limit=200&sort=name&dir=asc"),
+        ]);
+        const catJson = await catRes.json();
+        const brandJson = await brandRes.json();
+        type CategoryRow = { id?: string; _id?: string; name: string };
+        type BrandRow = { id?: string; _id?: string; name: string };
+        const cats: Option[] = ((catJson?.data as CategoryRow[]) || [])
+          .map((c) => {
+            const id = (c.id || c._id) as string | undefined;
+            return id ? { value: id, label: c.name } : null;
+          })
+          .filter((v): v is Option => v !== null);
+        const brands: Option[] = ((brandJson?.data as BrandRow[]) || [])
+          .map((b) => {
+            const id = (b.id || b._id) as string | undefined;
+            return id ? { value: id, label: b.name } : null;
+          })
+          .filter((v): v is Option => v !== null);
+        if (mounted) {
+          setCategoryOptions(cats);
+          setBrandOptions(brands);
+        }
+      } catch {
+        // ignore for now
+      } finally {
+        // no-op
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Fetch subcategories when category changes
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      if (!watchedCategory) {
+        setSubCategoryOptions([]);
+        form.setValue("subCategory", "");
+        return;
+      }
+      try {
+        const res = await fetch(
+          `/api/inventory/categories/subcategories?limit=200&sort=name&dir=asc&parent=${encodeURIComponent(
+            watchedCategory
+          )}`
+        );
+        const json = await res.json();
+        type SubRow = { id?: string; _id?: string; name: string };
+        const subs: Option[] = ((json?.data as SubRow[]) || [])
+          .map((s) => {
+            const id = (s.id || s._id) as string | undefined;
+            return id ? { value: id, label: s.name } : null;
+          })
+          .filter((v): v is Option => v !== null);
+        if (mounted) setSubCategoryOptions(subs);
+      } catch(e) {
+        // ignore
+        console.error(e);
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [watchedCategory, form]);
 
   const generateRandomSegment = (length: number) => {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // avoids 0/O and 1/I
@@ -251,7 +317,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {categories.map((category) => (
+                      {categoryOptions.map((category) => (
                         <SelectItem key={category.value} value={category.value}>
                           {category.label}
                         </SelectItem>
@@ -279,7 +345,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {subCategories.map((subCategory) => (
+                      {subCategoryOptions.map((subCategory) => (
                         <SelectItem
                           key={subCategory.value}
                           value={subCategory.value}
@@ -312,7 +378,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {brands.map((brand) => (
+                      {brandOptions.map((brand) => (
                         <SelectItem key={brand.value} value={brand.value}>
                           {brand.label}
                         </SelectItem>
