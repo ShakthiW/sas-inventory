@@ -218,10 +218,10 @@ export default function Page() {
               <ProductSearch
                 onSelect={(p) => {
                   addProductToCart({
-                    id: p.id,
+                    id: (p.id ?? "") as string,
                     name: p.name,
                     sku: p.sku,
-                    price: p.price,
+                    price: p.pricing?.price,
                   });
                 }}
               />

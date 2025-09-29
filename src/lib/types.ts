@@ -237,6 +237,74 @@ export type ProductListItem = {
   createdAt?: string;
 };
 
+// Lightweight product shape for card/browser UIs (flattened)
+export type ProductCardItem = {
+  id: string;
+  name: string;
+  sku?: string;
+  category?: string;
+  brand?: string;
+  price?: number;
+  image?: string;
+  quantity?: number;
+  unit?: string;
+};
+
+// Generic select option used in forms
+export type SelectOption = { value: string; label: string };
+
+// Minimal category shape used in client-side selectors
+export type CategoryOption = { id: string; name: string };
+
+// List item shapes used by tables and lists across inventory screens
+export type BrandListItem = {
+  id: string;
+  name: string;
+  description?: string;
+  logoUrl?: string;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+export type CategoryListItem = {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
+export type SubCategoryListItem = {
+  id: string;
+  name: string;
+  slug?: string;
+  description?: string;
+  isActive?: boolean;
+  parentCategoryId: string;
+  parentCategoryName?: string;
+  createdAt?: string;
+};
+
+export type UnitListItem = {
+  id: string;
+  name: string;
+  shortName?: string;
+  kind: UnitKind;
+  isActive?: boolean;
+  baseUnitName?: string;
+  unitsPerPack?: number;
+  createdAt?: string;
+};
+
+export type SupplierListItem = {
+  id: string;
+  name: string;
+  phone?: string;
+  isActive?: boolean;
+  createdAt?: string;
+};
+
 // Add Stock line item used in the Add Stock flow
 export type StockLineItem = {
   productId: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import type { CategoryListItem } from "@/lib/types";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CategorySortField } from "@/lib/types";
 import {
@@ -29,14 +30,7 @@ import {
 import AddCategoryDialog from "./AddCategoryDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
 
-type CategoryRow = {
-  id: string;
-  name: string;
-  slug?: string;
-  description?: string;
-  isActive?: boolean;
-  createdAt?: string;
-};
+type CategoryRow = CategoryListItem;
 
 type ApiResponse = {
   data: Array<{

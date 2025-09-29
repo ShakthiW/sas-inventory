@@ -13,16 +13,9 @@ import {
 } from "@/components/ui/sheet";
 
 import { Separator } from "@/components/ui/separator";
+import type { StockLineItem } from "@/lib/types";
 
-export type AddedItem = {
-  productId: string;
-  name: string;
-  sku?: string;
-  unit?: string;
-  quantity: number;
-  unitPrice?: number;
-  batch?: string;
-};
+export type AddedItem = StockLineItem;
 
 export type AddedItemsSheetProps = {
   items: AddedItem[];

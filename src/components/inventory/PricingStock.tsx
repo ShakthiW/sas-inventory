@@ -25,12 +25,7 @@ import {
 } from "@/components/ui/select";
 import React from "react";
 
-const units = [
-  { label: "Electronics", value: "electronics" },
-  { label: "Clothing", value: "clothing" },
-  { label: "Furniture", value: "furniture" },
-  { label: "Other", value: "other" },
-];
+type Option = { label: string; value: string };
 
 const productTypes = [
   { label: "Single Product", value: "single-product" },
@@ -53,6 +48,7 @@ type PricingStockProps = {
 };
 
 export default function MyForm({ onChange }: PricingStockProps) {
+  const [unitOptions, setUnitOptions] = React.useState<Option[]>([]);
   const form = useForm<PricingStockForm>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -87,6 +83,38 @@ export default function MyForm({ onChange }: PricingStockProps) {
     onChange(form.getValues());
     return () => subscription.unsubscribe();
   }, [form, onChange]);
+
+  // Fetch units once
+  React.useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const res = await fetch(
+          "/api/inventory/units?limit=200&sort=name&dir=asc"
+        );
+        const json = await res.json();
+        type UnitRow = {
+          id?: string;
+          _id?: string;
+          name: string;
+          shortName?: string;
+        };
+        const units: Option[] = ((json?.data as UnitRow[]) || []).map((u) => ({
+          value: u.name,
+          label: u.shortName ? `${u.name} (${u.shortName})` : u.name,
+        }));
+        if (mounted) setUnitOptions(units);
+      } catch {
+        // ignore
+      } finally {
+        // no-op
+      }
+    };
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <Form {...form}>
@@ -164,7 +192,7 @@ export default function MyForm({ onChange }: PricingStockProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {units.map((unit) => (
+                      {unitOptions.map((unit) => (
                         <SelectItem key={unit.value} value={unit.value}>
                           {unit.label}
                         </SelectItem>

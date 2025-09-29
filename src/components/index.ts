@@ -5,6 +5,15 @@ export { default as AppSidebarSkeleton } from "./app-sidebar-skeleton";
 export { default as DynamicBreadcrumbs } from "./DynamicBreadcrumbs";
 export { default as ActiveStatusBadge } from "./ActiveStatusBadge";
 
+export { default as WelcomeBanner } from "./dashboard/WelcomeBanner";
+export { default as StatCard } from "./dashboard/StatCard";
+export { default as StatsOverview } from "./dashboard/StatsOverview";
+export { default as RevenueChart } from "./dashboard/RevenueChart";
+export { default as SalesPieChart } from "./dashboard/SalesPieChart";
+export { default as RecentBatchesCard } from "./dashboard/RecentBatchesCard";
+export { default as RecentProductsCard } from "./dashboard/RecentProductsCard";
+export { default as RecentSuppliersCard } from "./dashboard/RecentSuppliersCard";
+
 export { default as ProductInformation } from "./inventory/ProductInformation";
 export { default as PricingStock } from "./inventory/PricingStock";
 export { default as ImageInput } from "./inventory/ImageInput";
