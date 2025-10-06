@@ -1,5 +1,4 @@
 import { AppSidebar } from "@/components/app-sidebar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // Breadcrumb primitives imported by DynamicBreadcrumbs internally
 import { Separator } from "@/components/ui/separator";
 import {
@@ -7,15 +6,27 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { getCurrentUser } from "@/lib/auth/user";
 import DynamicBreadcrumbs from "@/components/DynamicBreadcrumbs";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/better-auth/auth";
+import { headers } from "next/headers";
+import UserDropdown from "@/components/UserDropdown";
 
 export default async function Layout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
+  const session = await auth.api.getSession({ headers: await headers() });
+
+  if (!session?.user) redirect("/sign-in");
+
+  const user = {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar />
@@ -27,15 +38,7 @@ export default async function Layout({
             <DynamicBreadcrumbs />
           </div>
           <div className="flex flex-row flex-wrap items-center gap-3 pr-3 md:pr-6">
-            {user ? (
-              <span className="hidden sm:inline text-sm text-muted-foreground">
-                Hi, {user.name || user.email}
-              </span>
-            ) : null}
-            <Avatar className="rounded-full">
-              <AvatarImage src="https://github.com/shadcn.png" alt="@shadcn" />
-              <AvatarFallback>CN</AvatarFallback>
-            </Avatar>
+            <UserDropdown user={user} />
           </div>
         </header>
         {children}

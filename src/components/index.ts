@@ -1,4 +1,3 @@
-export { default as AuthForm } from "./AuthForm";
 export { default as SocialProviders } from "./SocialProviders";
 export { default as Toaster } from "./Toaster";
 export { default as AppSidebarSkeleton } from "./app-sidebar-skeleton";
