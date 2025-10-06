@@ -42,3 +42,25 @@ Example personalized outputs (inventory-focused, TWO sentences):
 <p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">Great to have you, especially in <strong>pharmacy</strong> operations where expiry control matters. You’ll set up <strong>batches and units</strong> quickly, and our reports make it simple to track movements and stay compliant.</p>
 
 <p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">You’re all set! For a <strong>wholesale warehouse</strong>, our <strong>stock transfers</strong> and supplier management will keep inventory balanced across locations while reducing manual checks. Clear dashboards help your team act fast every day.</p>`;
+
+export const DAILY_INVENTORY_SUMMARY_PROMPT = `Generate HTML content for a daily inventory summary email to be inserted at the {{summary}} placeholder.
+
+Input (JSON):
+{{metrics}}
+
+REQUIREMENTS:
+- Address the recipient by name ({{name}}) in the first sentence without starting with "Welcome".
+- Summarize yesterday's inventory activity: total items moved in/out, net change, count of batches.
+- Highlight top 3 low-stock items with their quantity and alert threshold if available.
+- Mention notable movers (top in/out by quantity) if present.
+- Add a short recommendation based on 7-day trends (e.g., reorder signals, frequent stock-outs, slow-moving items).
+
+FORMATTING RULES:
+- Return ONLY clean HTML, NO markdown/backticks.
+- Use 2-3 concise paragraphs total.
+- First paragraph: overview and key totals.
+- Second paragraph: low-stock and movers.
+- Optional third paragraph: recommendation/prediction.
+- Use <strong> to emphasize product names, quantities, and key numbers.
+- Keep to 80-140 words.
+`;

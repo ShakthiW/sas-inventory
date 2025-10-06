@@ -1,5 +1,8 @@
 import nodemailer from "nodemailer";
-import { WELCOME_EMAIL_TEMPLATE } from "@/lib/nodemailer/templates";
+import {
+  DAILY_INVENTORY_SUMMARY_TEMPLATE,
+  WELCOME_EMAIL_TEMPLATE,
+} from "@/lib/nodemailer/templates";
 
 export const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -24,6 +27,27 @@ export const sendWelcomeEmail = async ({
     to: email,
     subject: `Welcome to Standord Inventory — let's set up your inventory in minutes`,
     text: "Thanks for joining Standord Inventory",
+    html: htmlTemplate,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+export const sendDailyInventorySummaryEmail = async ({
+  email,
+  name,
+  summary,
+}: DailySummaryEmailData): Promise<void> => {
+  const htmlTemplate = DAILY_INVENTORY_SUMMARY_TEMPLATE.replace(
+    "{{name}}",
+    name
+  ).replace("{{summary}}", summary);
+
+  const mailOptions = {
+    from: `"Standord Inventory" <shakthiraveen2002@gmail.com>`,
+    to: email,
+    subject: `Standord Inventory — Daily Inventory Summary ${new Date().toLocaleDateString()}`,
+    text: "Standord Inventory Daily Inventory Summary",
     html: htmlTemplate,
   };
 

@@ -21,6 +21,12 @@ declare global {
     intro: string;
   };
 
+  type DailySummaryEmailData = {
+    email: string;
+    name: string;
+    summary: string;
+  }
+
   type User = {
     id: string;
     name: string;
