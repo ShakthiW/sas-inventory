@@ -14,11 +14,11 @@ const Layout = async ({ children }: { children: React.ReactNode }) => {
       <section className="w-1/2 max-lg:border-t max-lg:border-gray-600 lg:h-screen bg-gray-800 px-6 py-4 md:p-6 lg:py-12 lg:px-18 flex flex-col justify-start">
         <Link href="/" className="pt-6 lg:pt-8 mb-8 lg:mb-12">
           <Image
-            src="/assets/icons/logo.svg"
+            src="/assets/images/dark-logo.png"
             alt="Standord Inventory logo"
             width={140}
             height={32}
-            className="h-8 w-auto"
+            className="h-16 w-auto"
           />
         </Link>
 
