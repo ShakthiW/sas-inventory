@@ -3,46 +3,42 @@ export const PERSONALIZED_WELCOME_EMAIL_PROMPT = `Generate highly personalized H
 User profile data:
 {{userProfile}}
 
-PERSONALIZATION REQUIREMENTS:
-You MUST create content that is obviously tailored to THIS specific user by:
+PERSONALIZATION REQUIREMENTS (Inventory Management Context):
+You MUST create content that is obviously tailored to THIS specific business by:
 
-IMPORTANT: Do NOT start the personalized content with "Welcome" since the email header already says "Welcome aboard {{name}}". Use alternative openings like "Thanks for joining", "Great to have you", "You're all set", "Perfect timing", etc.
+IMPORTANT: Do NOT start the personalized content with "Welcome" since the email header already says "Welcome aboard {{name}}". Use alternatives like "Thanks for joining", "Great to have you", "You're all set", "Perfect timing", etc.
 
-1. **Direct Reference to User Details**: Extract and use specific information from their profile:
-   - Their exact investment goals or objectives
-   - Their stated risk tolerance level
-   - Their preferred sectors/industries mentioned
-   - Their experience level or background
-   - Any specific stocks/companies they're interested in
-   - Their investment timeline (short-term, long-term, retirement)
+1. Direct Reference to Business Details: Extract and use specifics from their profile:
+   - Business/company name and industry
+   - Store type or operation focus (e.g., retail, pharmacy, wholesale, warehouse)
+   - Team size / number of employees
+   - Preferred currency
+   - Any hints about products handled (brands, categories) if available
 
-2. **Contextual Messaging**: Create content that shows you understand their situation:
-   - New investors → Reference learning/starting their journey
-   - Experienced traders → Reference advanced tools/strategy enhancement  
-   - Retirement planning → Reference building wealth over time
-   - Specific sectors → Reference those exact industries by name
-   - Conservative approach → Reference safety and informed decisions
-   - Aggressive approach → Reference opportunities and growth potential
+2. Contextual Messaging: Connect features to their immediate operational needs:
+   - New store setup → reference adding products, units, and suppliers
+   - Fast-moving retail → reference low-stock alerts and barcode/QR labels
+   - Multi-location/warehouse → reference stock transfers and batch tracking
+   - Compliance-heavy (e.g., pharmacy) → reference expiry/lot tracking
 
-3. **Personal Touch**: Make it feel like it was written specifically for them:
-   - Use their goals in your messaging
-   - Reference their interests directly
-   - Connect features to their specific needs
-   - Make them feel understood and seen
+3. Personal Touch: Make it feel written specifically for them:
+   - Mirror their industry/role language
+   - Emphasize benefits tied to their size and workflow
+   - Map features like products, suppliers, purchases, sales, and reports to their context
 
 CRITICAL FORMATTING REQUIREMENTS:
 - Return ONLY clean HTML content with NO markdown, NO code blocks, NO backticks
 - Use SINGLE paragraph only: <p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">content</p>
-- Write exactly TWO sentences (add one more sentence than current single sentence)
+- Write exactly TWO sentences
 - Keep total content between 35-50 words for readability
-- Use <strong> for key personalized elements (their goals, sectors, etc.)
+- Use <strong> for key personalized elements (industry, store type, priorities like low‑stock, barcode printing, reporting)
 - DO NOT include "Here's what you can do right now:" as this is already in the template
 - Make every word count toward personalization
 - Second sentence should add helpful context or reinforce the personalization
 
-Example personalized outputs (showing obvious customization with TWO sentences):
-<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">Thanks for joining Standord Inventory! As someone focused on <strong>technology growth stocks</strong>, you'll love our real-time alerts for companies like the ones you're tracking. We'll help you spot opportunities before they become mainstream news.</p>
+Example personalized outputs (inventory-focused, TWO sentences):
+<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">Thanks for joining Standord Inventory! Running a <strong>grocery retail</strong> team of <strong>5</strong> in <strong>USD</strong>, you’ll benefit from low‑stock alerts and fast barcode labels to keep shelves full. We’ll streamline <strong>supplier orders</strong> so reordering is timely and effortless.</p>
 
-<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">Great to have you aboard! Perfect for your <strong>conservative retirement strategy</strong> — we'll help you monitor dividend stocks without overwhelming you with noise. You can finally track your portfolio progress with confidence and clarity.</p>
+<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">Great to have you, especially in <strong>pharmacy</strong> operations where expiry control matters. You’ll set up <strong>batches and units</strong> quickly, and our reports make it simple to track movements and stay compliant.</p>
 
-<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">You're all set! Since you're new to investing, we've designed simple tools to help you build confidence while learning the <strong>healthcare sector</strong> you're interested in. Our beginner-friendly alerts will guide you without the confusing jargon.</p>`;
+<p class="mobile-text" style="margin: 0 0 30px 0; font-size: 16px; line-height: 1.6; color: #CCDADC;">You’re all set! For a <strong>wholesale warehouse</strong>, our <strong>stock transfers</strong> and supplier management will keep inventory balanced across locations while reducing manual checks. Clear dashboards help your team act fast every day.</p>`;
