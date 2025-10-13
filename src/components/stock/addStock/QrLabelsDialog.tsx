@@ -43,11 +43,39 @@ export default function QrLabelsDialog({
 
   const totalLabels = labels.length;
 
+  const handlePrint = React.useCallback(async () => {
+    try {
+      const mod = await import("print-js");
+      const printFn: (opts: unknown) => void =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (mod as any)?.default || (mod as unknown as (opts: unknown) => void);
+      printFn({ printable: "print-root", type: "html", scanStyles: false });
+    } catch {
+      window.print();
+    }
+  }, []);
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50 print:hidden" />
         <Dialog.Content className="bg-background text-foreground fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-xl border p-4 shadow-lg outline-none print:static print:translate-x-0 print:translate-y-0 print:w-auto print:max-w-none print:rounded-none print:border-0 print:p-0 print:shadow-none">
+          {/* Print styles for 2×1 inch labels */}
+          <style
+            dangerouslySetInnerHTML={{
+              __html: `
+@media print {
+  @page { size: 2in 1in; margin: 0; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.qr-2x1 { width: 2in; height: 1in; page-break-after: always; break-inside: avoid; }
+.qr-2x1-inner { display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 0.06in; padding: 0.06in; box-sizing: border-box; width: 100%; height: 100%; }
+.qr-2x1-code { width: 0.9in; height: 0.9in; }
+.qr-2x1-name { font-size: 8pt; font-weight: 600; line-height: 1.1; }
+.qr-2x1-meta { font-size: 7pt; line-height: 1.1; opacity: 0.75; }
+              `,
+            }}
+          />
           <div className="flex items-center justify-between gap-3 print:hidden">
             <Dialog.Title className="text-lg font-semibold">
               QR Labels
@@ -65,7 +93,7 @@ export default function QrLabelsDialog({
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
-              <Button onClick={() => window.print()}>Print</Button>
+              <Button onClick={handlePrint}>Print</Button>
             </div>
           </div>
           <div className="print:hidden text-xs text-muted-foreground mt-1">
@@ -73,26 +101,52 @@ export default function QrLabelsDialog({
           </div>
           <Separator className="my-3 print:hidden" />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 print:grid print:grid-cols-4 print:gap-2">
+          {/* Screen preview grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 print:hidden">
             {labels.map(({ key, item }) => (
-              <div
-                key={key}
-                className="border rounded-md p-2 flex flex-col items-center justify-center gap-2 break-inside-avoid print:border print:rounded-none print:p-1"
-              >
-                <QRCodeSVG
-                  value={buildQrValue(item)}
-                  size={112}
-                  level="M"
-                  includeMargin={false}
-                />
-                <div className="w-full text-center">
-                  <div className="text-xs font-medium leading-tight line-clamp-2">
-                    {item.name}
+              <div key={key} className="border rounded-md">
+                <div className="qr-2x1">
+                  <div className="qr-2x1-inner">
+                    <QRCodeSVG
+                      value={buildQrValue(item)}
+                      size={256}
+                      level="M"
+                      includeMargin={false}
+                      style={{ width: "0.9in", height: "0.9in" }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="qr-2x1-name truncate">{item.name}</div>
+                      <div className="qr-2x1-meta truncate">
+                        {item.sku
+                          ? `SKU: ${item.sku}`
+                          : `ID: ${item.productId.slice(0, 6)}...`}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[10px] text-muted-foreground leading-tight">
-                    {item.sku
-                      ? `SKU: ${item.sku}`
-                      : `ID: ${item.productId.slice(0, 6)}...`}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Print layout root: exact 2×1 pages, one per label */}
+          <div id="print-root" className="hidden print:block">
+            {labels.map(({ key, item }) => (
+              <div key={key} className="qr-2x1">
+                <div className="qr-2x1-inner">
+                  <QRCodeSVG
+                    value={buildQrValue(item)}
+                    size={256}
+                    level="M"
+                    includeMargin={false}
+                    style={{ width: "0.9in", height: "0.9in" }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="qr-2x1-name truncate">{item.name}</div>
+                    <div className="qr-2x1-meta truncate">
+                      {item.sku
+                        ? `SKU: ${item.sku}`
+                        : `ID: ${item.productId.slice(0, 6)}...`}
+                    </div>
                   </div>
                 </div>
               </div>

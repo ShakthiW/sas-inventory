@@ -79,6 +79,52 @@ export default function Page() {
     [startTransition]
   );
 
+  // Parse SASINV QR strings like:
+  // SASINV:1|P:68bc170cb556db55bbe1053b|U:New base unit |S:TES-PRI-HGA9TP
+  // or SASINV:1|P:68bc142cb556db55bbe1053a|S:ANO-PRO-93RK9J
+  const parseSasInv = React.useCallback(
+    (
+      raw: string
+    ): { productId?: string; sku?: string; unit?: string } | null => {
+      const text = raw.trim();
+      if (!text) return null;
+      if (!text.startsWith("SASINV:")) return null;
+      const parts = text.split("|");
+      const result: { productId?: string; sku?: string; unit?: string } = {};
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.startsWith("P:")) {
+          result.productId = trimmed.slice(2).trim();
+        } else if (trimmed.startsWith("S:")) {
+          result.sku = trimmed.slice(2).trim();
+        } else if (trimmed.startsWith("U:")) {
+          result.unit = trimmed.slice(2).trim();
+        }
+      }
+      if (!result.productId && !result.sku) return null;
+      return result;
+    },
+    []
+  );
+
+  const resolveProductById = React.useCallback(async (id: string) => {
+    try {
+      const params = new URLSearchParams({ id, limit: "1" });
+      const res = await fetch(`/api/inventory/products?${params.toString()}`);
+      const json: ProductsApiResponse = await res.json();
+      const row = json?.data?.[0];
+      if (!row) return null;
+      return {
+        id: (row.id || row._id || id) as string,
+        name: row.name,
+        sku: row.sku,
+        price: row?.pricing?.price,
+      } as { id: string; name: string; sku?: string; price?: number };
+    } catch {
+      return null;
+    }
+  }, []);
+
   const resolveProductByCode = React.useCallback(async (code: string) => {
     try {
       const params = new URLSearchParams({ q: code, page: "1", limit: "8" });
@@ -102,16 +148,52 @@ export default function Page() {
 
   const handleQrSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const code = qr.trim();
-    if (!code) return;
-    const product = await resolveProductByCode(code);
-    if (product) {
-      addProductToCart(product);
-      toast.success("Added to out stock", { description: product.name });
+    const scanned = qr.trim();
+    if (!scanned) return;
+
+    // Try SASINV parsing first
+    const parsed = parseSasInv(scanned);
+    let chosen: {
+      id: string;
+      name: string;
+      sku?: string;
+      price?: number;
+    } | null = null;
+
+    if (parsed) {
+      // For SASINV payloads, require productId and resolve strictly by id.
+      if (!parsed.productId) {
+        toast.error("Invalid SASINV QR", {
+          description: "Missing product id in scanned code.",
+        });
+        setQr("");
+        inputRef.current?.focus();
+        return;
+      }
+      chosen = await resolveProductById(parsed.productId);
+      if (!chosen) {
+        toast.error("Product not found", {
+          description: "The scanned product id does not exist.",
+        });
+        setQr("");
+        inputRef.current?.focus();
+        return;
+      }
     } else {
-      addProductToCart({ id: code, name: `Scanned: ${code}` });
-      toast.message("Scanned code added", { description: code });
+      // Non-SASINV: treat as manual QR/barcode or SKU search as before
+      chosen = await resolveProductByCode(scanned);
+      if (!chosen) {
+        toast.message("Code not recognized", {
+          description: scanned,
+        });
+        setQr("");
+        inputRef.current?.focus();
+        return;
+      }
     }
+
+    addProductToCart(chosen);
+    toast.success("Added to out stock", { description: chosen.name });
     setQr("");
     // Keep focus for next scan
     inputRef.current?.focus();
