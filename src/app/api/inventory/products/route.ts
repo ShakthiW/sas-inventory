@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import type { NextRequest } from "next/server";
+import { ObjectId } from "mongodb";
 
 // Zod schema mirroring our frontend forms
 const productTypeEnum = z
@@ -34,6 +35,7 @@ export async function GET(request: NextRequest) {
   const db = await getDb();
 
   const searchParams = request.nextUrl.searchParams;
+  const id = (searchParams.get("id") || "").trim();
   const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1);
   const limit = Math.min(
     Math.max(parseInt(searchParams.get("limit") || "10", 10), 1),
@@ -44,6 +46,66 @@ export async function GET(request: NextRequest) {
   const dir =
     (searchParams.get("dir") || "desc").toLowerCase() === "asc" ? 1 : -1;
   const stock = (searchParams.get("stock") || "").toLowerCase(); // '' | 'low' | 'near'
+
+  const collection = db.collection("products");
+
+  // Fast path: fetch by exact id when provided (for scanner flows)
+  if (id) {
+    try {
+      if (!ObjectId.isValid(id)) {
+        return Response.json({
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            limit: 1,
+            pages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        });
+      }
+
+      const doc = await collection.findOne({ _id: new ObjectId(id) });
+      const data = doc
+        ? [
+            {
+              ...doc,
+              id: doc._id?.toString(),
+              _id: undefined,
+            },
+          ]
+        : [];
+
+      return Response.json({
+        data,
+        meta: {
+          total: data.length,
+          page: 1,
+          limit: 1,
+          pages: 1,
+          hasNext: false,
+          hasPrev: false,
+        },
+      });
+    } catch (e: unknown) {
+      return Response.json(
+        {
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            limit: 1,
+            pages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+          error: e instanceof Error ? e.message : "Unexpected server error",
+        },
+        { status: 500 }
+      );
+    }
+  }
 
   const andClauses: Record<string, unknown>[] = [];
   if (q) {
@@ -87,7 +149,6 @@ export async function GET(request: NextRequest) {
   if (sort === "price") sortSpec["pricing.price"] = dir as 1 | -1;
   else sortSpec[sort] = dir as 1 | -1;
 
-  const collection = db.collection("products");
   const total = await collection.countDocuments(filter);
   const docs = await collection
     .find(filter)
