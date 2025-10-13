@@ -25,7 +25,7 @@ declare global {
     email: string;
     name: string;
     summary: string;
-  }
+  };
 
   type User = {
     id: string;
@@ -65,3 +65,20 @@ declare global {
 }
 
 export {};
+
+declare module "print-js" {
+  // Minimal declaration to satisfy TypeScript. The library exposes a default callable.
+  const printJS: (
+    options:
+      | string
+      | {
+          printable: string | HTMLElement;
+          type?: "pdf" | "html" | "image" | "json";
+          header?: string;
+          style?: string;
+          scanStyles?: boolean;
+          targetStyles?: string[];
+        }
+  ) => void;
+  export default printJS;
+}

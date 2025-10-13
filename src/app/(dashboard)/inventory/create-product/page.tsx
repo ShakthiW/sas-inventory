@@ -14,6 +14,12 @@ export default function Page() {
   const [pricing, setPricing] = React.useState<PricingStockForm | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [imageFile, setImageFile] = React.useState<File | null>(null);
+  const [justCreated, setJustCreated] = React.useState<null | {
+    id: string;
+    name: string;
+    sku?: string;
+    unit?: string;
+  }>(null);
 
   const handleSubmit = async () => {
     const payload = {
@@ -46,6 +52,17 @@ export default function Page() {
       const data = await res.json();
       toast.success("Product added successfully");
       console.log("Inserted:", data);
+
+      // Save created product minimal info for quick-print flow
+      const createdId = data?.insertedId as string | undefined;
+      if (createdId) {
+        setJustCreated({
+          id: createdId,
+          name: info?.name || "New Product",
+          sku: info?.sku,
+          unit: pricing?.unit,
+        });
+      }
     } catch (e) {
       toast.error("Network error while adding product " + e);
     }
@@ -86,6 +103,41 @@ export default function Page() {
         <Button variant="outline">Cancel</Button>
         <Button onClick={handleSubmit}>Add Product</Button>
       </div>
+
+      {/* Quick print bar after creation */}
+      {justCreated ? (
+        <div className="flex items-center justify-between rounded-md border p-3">
+          <div className="text-sm">
+            Ready to print QR for{" "}
+            <span className="font-medium">{justCreated.name}</span>?
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const payload = [
+                  {
+                    productId: justCreated.id,
+                    name: justCreated.name,
+                    sku: justCreated.sku,
+                    unit: justCreated.unit,
+                    quantity: 1,
+                  },
+                ];
+                const url = `/stocks/qr-labels?autoprint=1&payload=${encodeURIComponent(
+                  JSON.stringify(payload)
+                )}`;
+                window.open(url, "_blank");
+              }}
+            >
+              Print QR (2×1)
+            </Button>
+            <Button variant="ghost" onClick={() => setJustCreated(null)}>
+              Dismiss
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

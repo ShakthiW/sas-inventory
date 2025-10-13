@@ -159,28 +159,41 @@ export default function Page() {
       sku?: string;
       price?: number;
     } | null = null;
-    if (parsed?.productId) {
-      chosen = await resolveProductById(parsed.productId);
-      // If still not found and we have a SKU, try by SKU
-      if (!chosen && parsed?.sku) {
-        chosen = await resolveProductByCode(parsed.sku);
+
+    if (parsed) {
+      // For SASINV payloads, require productId and resolve strictly by id.
+      if (!parsed.productId) {
+        toast.error("Invalid SASINV QR", {
+          description: "Missing product id in scanned code.",
+        });
+        setQr("");
+        inputRef.current?.focus();
+        return;
       }
-    } else if (parsed?.sku) {
-      chosen = await resolveProductByCode(parsed.sku);
-    }
-
-    // Fallback to treating the entire scanned text as a code/SKU for manual QR/barcode
-    if (!chosen) {
-      chosen = await resolveProductByCode(scanned);
-    }
-
-    if (chosen) {
-      addProductToCart(chosen);
-      toast.success("Added to out stock", { description: chosen.name });
+      chosen = await resolveProductById(parsed.productId);
+      if (!chosen) {
+        toast.error("Product not found", {
+          description: "The scanned product id does not exist.",
+        });
+        setQr("");
+        inputRef.current?.focus();
+        return;
+      }
     } else {
-      addProductToCart({ id: scanned, name: `Scanned: ${scanned}` });
-      toast.message("Scanned code added", { description: scanned });
+      // Non-SASINV: treat as manual QR/barcode or SKU search as before
+      chosen = await resolveProductByCode(scanned);
+      if (!chosen) {
+        toast.message("Code not recognized", {
+          description: scanned,
+        });
+        setQr("");
+        inputRef.current?.focus();
+        return;
+      }
     }
+
+    addProductToCart(chosen);
+    toast.success("Added to out stock", { description: chosen.name });
     setQr("");
     // Keep focus for next scan
     inputRef.current?.focus();
