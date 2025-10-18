@@ -48,7 +48,7 @@ export default function Page() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="flex items-center justify-between">
-        <div className="text-lg font-semibold">Print Barcodes</div>
+        <div className="text-lg font-semibold">Batches</div>
       </div>
       <Separator />
 
@@ -85,15 +85,35 @@ export default function Page() {
                   ? new Date(b.createdAt).toLocaleString()
                   : "Unknown"}
               </div>
-              <div className="mt-3">
+              {/* Actions */}
+              <div className="mt-3 flex items-center gap-2">
                 <Button
                   size="sm"
+                  variant="secondary"
                   onClick={(e) => {
                     e.stopPropagation();
                     router.push(`/stocks/qr-labels?batchId=${b.id}`);
                   }}
                 >
-                  View QR Labels
+                  View Labels
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
+                      b.id
+                    )}`;
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `batch_${b.id}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                >
+                  Export to CSV
                 </Button>
               </div>
             </CardContent>

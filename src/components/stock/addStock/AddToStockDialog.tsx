@@ -16,7 +16,17 @@ import {
 export type AddToStockDialogProps = {
   open: boolean;
   onOpenChange(open: boolean): void;
-  product: { id: string; name: string; sku?: string; price?: number } | null;
+  product: {
+    id: string;
+    name: string;
+    sku?: string;
+    price?: number;
+    category?: string;
+    subCategory?: string;
+    brand?: string;
+    unit?: string;
+    supplier?: string;
+  } | null;
   onConfirm(item: StockLineItem): void;
 };
 
@@ -134,10 +144,14 @@ export default function AddToStockDialog({
                   productId: product.id,
                   name: product.name,
                   sku: product.sku,
-                  unit: unit || undefined,
+                  unit: unit || product.unit || undefined,
                   quantity,
                   unitPrice: product?.price,
                   batch: batch || undefined,
+                  category: product.category,
+                  subCategory: product.subCategory,
+                  brand: product.brand,
+                  supplier: product.supplier,
                 });
                 onOpenChange(false);
               }}

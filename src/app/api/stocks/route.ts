@@ -12,6 +12,10 @@ const stockLineItemSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative().optional(),
   batch: z.string().optional(),
+  category: z.string().optional(),
+  subCategory: z.string().optional(),
+  brand: z.string().optional(),
+  supplier: z.string().optional(),
 });
 
 const stockPayloadSchema = z.object({
