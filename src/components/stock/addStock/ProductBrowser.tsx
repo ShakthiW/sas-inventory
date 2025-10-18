@@ -44,6 +44,11 @@ export type ProductBrowserProps = {
     name: string;
     sku?: string;
     price?: number;
+    category?: string;
+    subCategory?: string;
+    brand?: string;
+    unit?: string;
+    supplier?: string;
   }): void;
   footer?: React.ReactNode;
 };
@@ -255,6 +260,10 @@ export default function ProductBrowser({
                           name: p.name,
                           sku: p.sku,
                           price: p.price,
+                          category: p.category,
+                          brand: p.brand,
+                          unit: p.unit,
+                          // subCategory and supplier not available in list item; left undefined
                         })
                       }
                     >

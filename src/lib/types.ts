@@ -314,4 +314,8 @@ export type StockLineItem = {
   quantity: number;
   unitPrice?: number;
   batch?: string;
+  category?: string;
+  subCategory?: string;
+  brand?: string;
+  supplier?: string;
 };

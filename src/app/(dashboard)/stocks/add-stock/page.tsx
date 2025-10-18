@@ -16,6 +16,11 @@ export default function Page() {
     name: string;
     sku?: string;
     price?: number;
+    category?: string;
+    subCategory?: string;
+    brand?: string;
+    unit?: string;
+    supplier?: string;
   } | null>(null);
   const [items, setItems] = React.useState<StockLineItem[]>([]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
@@ -68,6 +73,12 @@ export default function Page() {
                   name: p.name,
                   sku: p.sku,
                   price: p.price,
+                  category: (p as unknown as { category?: string }).category,
+                  subCategory: (p as unknown as { subCategory?: string })
+                    .subCategory,
+                  brand: (p as unknown as { brand?: string }).brand,
+                  unit: (p as unknown as { unit?: string }).unit,
+                  supplier: (p as unknown as { supplier?: string }).supplier,
                 });
                 setDialogOpen(true);
               }}
@@ -128,7 +139,15 @@ export default function Page() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         product={selected}
-        onConfirm={addItem}
+        onConfirm={(it) =>
+          addItem({
+            ...it,
+            category: selected?.category,
+            subCategory: selected?.subCategory,
+            brand: selected?.brand,
+            supplier: selected?.supplier,
+          })
+        }
       />
     </div>
   );
