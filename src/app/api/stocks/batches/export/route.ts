@@ -14,6 +14,7 @@ function csvEscape(value: unknown): string {
 type ProductPick = {
   _id: ObjectId;
   name?: string;
+  sku?: string;
   category?: string;
   subCategory?: string;
   brand?: string;
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
           { _id: { $in: productIds } },
           {
             projection: {
+              sku: 1,
               name: 1,
               category: 1,
               subCategory: 1,
@@ -84,6 +86,7 @@ export async function GET(request: NextRequest) {
   }
 
   const header = [
+    "sku",
     "product_id",
     "product_name",
     "supplier",
@@ -99,6 +102,7 @@ export async function GET(request: NextRequest) {
   for (const it of items) {
     const p = it.productId ? productById.get(it.productId) : undefined;
     const row = [
+      csvEscape(it.sku ?? ""),
       csvEscape(it.productId ?? (p?._id ? String(p._id) : "")),
       csvEscape(p?.name ?? it.name ?? ""),
       csvEscape(it.supplier ?? ""),
