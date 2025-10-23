@@ -33,6 +33,69 @@ declare global {
     email: string;
   };
 
+  // Roles & Permissions
+  type Permission =
+    | "users.read"
+    | "users.write"
+    | "roles.read"
+    | "roles.write"
+    | "inventory.read"
+    | "inventory.write"
+    | "stocks.read"
+    | "stocks.write"
+    | "reports.read";
+
+  type Role = {
+    id: string;
+    name: string;
+    description?: string;
+    permissions: Permission[];
+  };
+
+  // User Management DTOs
+  type CreateUserInput = {
+    name: string;
+    email: string;
+    password: string;
+    role: string; // role id or slug
+  };
+
+  type UpdateUserInput = {
+    id: string;
+    name?: string;
+    email?: string;
+    password?: string;
+    role?: string; // role id or slug
+    active?: boolean;
+  };
+
+  type CreateRoleInput = {
+    name: string;
+    description?: string;
+    permissions?: Permission[];
+  };
+
+  type UpdateRoleInput = {
+    id: string;
+    name?: string;
+    description?: string;
+    permissions?: Permission[];
+  };
+
+  // Form data used by the new pages
+  type AddEditUserFormData = {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+  };
+
+  type RoleFormData = {
+    name: string;
+    description?: string;
+    permissions?: Permission[];
+  };
+
   type SelectFieldProps = {
     name: string;
     label: string;

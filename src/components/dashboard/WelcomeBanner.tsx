@@ -12,7 +12,7 @@ type WelcomeBannerProps = {
 
 export default function WelcomeBanner({
   adminName = "Admin",
-  subtitle = "14 New Companies Subscribed Today !!!",
+  subtitle = "Go ahead and start managing your inventory!!",
   onCompaniesClick,
   onPackagesClick,
 }: WelcomeBannerProps) {
