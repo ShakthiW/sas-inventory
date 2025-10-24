@@ -102,6 +102,20 @@ const data = {
         },
       ],
     },
+    {
+      title: "Manage Users",
+      url: "/manage-users",
+      items: [
+        {
+          title: "Add/Edit Users",
+          url: "/manage-users/add-edit-users",
+        },
+        {
+          title: "Manage Roles",
+          url: "/manage-users/manage-roles",
+        },
+      ],
+    },
   ],
 };
 

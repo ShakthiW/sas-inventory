@@ -2,18 +2,15 @@ import { ObjectId } from "mongodb";
 import type { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import type { StockLineItem } from "@/lib/types";
-
-function csvEscape(value: unknown): string {
-  const str = value == null ? "" : String(value);
-  if (str === "") return "";
-  const needsQuoting = /[",\n]/.test(str);
-  const escaped = str.replace(/"/g, '""');
-  return needsQuoting ? `"${escaped}"` : escaped;
-}
+import {
+  buildTscTxtFromLabelData,
+  type LabelData,
+} from "@/lib/labels/templates";
 
 type ProductPick = {
   _id: ObjectId;
   name?: string;
+  sku?: string;
   category?: string;
   subCategory?: string;
   brand?: string;
@@ -67,6 +64,7 @@ export async function GET(request: NextRequest) {
           { _id: { $in: productIds } },
           {
             projection: {
+              sku: 1,
               name: 1,
               category: 1,
               subCategory: 1,
@@ -83,39 +81,22 @@ export async function GET(request: NextRequest) {
     productById.set(String(p._id), p);
   }
 
-  const header = [
-    "product_id",
-    "product_name",
-    "supplier",
-    "category",
-    "subcategory",
-    "brand",
-    "unit",
-  ];
-
-  const lines: string[] = [];
-  lines.push(header.join(","));
-
-  for (const it of items) {
+  // Build label data: QR encodes id|name|unit; text shows name and product ID
+  const labels: LabelData[] = items.map((it) => {
     const p = it.productId ? productById.get(it.productId) : undefined;
-    const row = [
-      csvEscape(it.productId ?? (p?._id ? String(p._id) : "")),
-      csvEscape(p?.name ?? it.name ?? ""),
-      csvEscape(it.supplier ?? ""),
-      csvEscape(p?.category ?? it.category ?? ""),
-      csvEscape(p?.subCategory ?? it.subCategory ?? ""),
-      csvEscape(p?.brand ?? it.brand ?? ""),
-      csvEscape(p?.unit ?? it.unit ?? ""),
-    ];
-    lines.push(row.join(","));
-  }
+    const id = (it.productId ?? (p?._id ? String(p._id) : "")).toString();
+    const name = (p?.name ?? it.name ?? "").toString();
+    const unit = (p?.unit ?? it.unit ?? "").toString();
+    const qr = [id, name, unit].join("|");
+    return { qr, name, id };
+  });
 
-  const csv = lines.join("\n");
-  const filename = `batch_${batchId}.csv`;
-  return new Response(csv, {
+  const txt = buildTscTxtFromLabelData(labels);
+  const filename = `batch_${batchId}.txt`;
+  return new Response(txt, {
     status: 200,
     headers: {
-      "content-type": "text/csv; charset=utf-8",
+      "content-type": "text/plain; charset=utf-8",
       "content-disposition": `attachment; filename=${filename}`,
       "cache-control": "no-store",
     },

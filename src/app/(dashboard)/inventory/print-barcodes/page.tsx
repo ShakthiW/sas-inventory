@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -13,7 +13,6 @@ type BatchListItem = {
 };
 
 export default function Page() {
-  const router = useRouter();
   const params = useSearchParams();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -66,11 +65,7 @@ export default function Page() {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {batches.map((b) => (
-          <Card
-            key={b.id}
-            className="cursor-pointer"
-            onClick={() => router.push(`/stocks/qr-labels?batchId=${b.id}`)}
-          >
+          <Card key={b.id}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">
                 Batch {b.id.slice(0, 6)}...
@@ -89,16 +84,6 @@ export default function Page() {
               <div className="mt-3 flex items-center gap-2">
                 <Button
                   size="sm"
-                  variant="secondary"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/stocks/qr-labels?batchId=${b.id}`);
-                  }}
-                >
-                  View Labels
-                </Button>
-                <Button
-                  size="sm"
                   variant="outline"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -107,13 +92,13 @@ export default function Page() {
                     )}`;
                     const a = document.createElement("a");
                     a.href = url;
-                    a.download = `batch_${b.id}.csv`;
+                    a.download = `batch_${b.id}.txt`;
                     document.body.appendChild(a);
                     a.click();
                     a.remove();
                   }}
                 >
-                  Export to CSV
+                  Download TXT
                 </Button>
               </div>
             </CardContent>
