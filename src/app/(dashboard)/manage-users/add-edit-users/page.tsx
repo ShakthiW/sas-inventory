@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import InputField from "@/components/forms/InputField";
 import SelectField from "@/components/forms/SelectField";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 type AddEditUserFormValues = {
   name: string;
@@ -30,9 +31,25 @@ export default function Page() {
   });
 
   async function onSubmit(values: AddEditUserFormValues) {
-    // Placeholder submit: wire to API later
-    console.log("Add/Edit User submit", values);
-    reset({ name: "", email: "", password: "", role: "" });
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(values),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.error || "Failed to save user");
+      }
+      toast.success("User created", {
+        description: `${values.name} (${values.role}) added and emailed credentials`,
+      });
+      reset({ name: "", email: "", password: "", role: "" });
+    } catch (e) {
+      toast.error("Could not create user", {
+        description: e instanceof Error ? e.message : "Unexpected error",
+      });
+    }
   }
 
   return (
