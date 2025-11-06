@@ -15,6 +15,7 @@ export type TscLabelOptions = {
   textPositions?: { x: number; y: number }[];
   // Product ID label positions (second line)
   idTextPositions?: { x: number; y: number }[];
+  nameTextPositions?: { x: number; y: number }[];
   qrModel?: string; // e.g., "L"
   qrSize?: number; // module size
   qrRotation?: number; // 0/90/180/270
@@ -24,9 +25,34 @@ export type TscLabelOptions = {
   textRotation?: number; // 0/90/180/270
   textXMul?: number; // horizontal scale
   textYMul?: number; // vertical scale
+  nameTextFont?: string;
+  nameTextRotation?: number;
+  nameTextXMul?: number;
+  nameTextYMul?: number;
 };
 
 export type LabelData = { qr: string; name: string; id: string };
+
+const defaultQrPositions = [
+  { x: 819, y: 175 },
+  { x: 595, y: 175 },
+  { x: 372, y: 175 },
+  { x: 148, y: 175 },
+];
+
+const defaultNameTextPositions = [
+  { x: 831, y: 38 },
+  { x: 607, y: 38 },
+  { x: 384, y: 38 },
+  { x: 160, y: 38 },
+];
+
+const defaultIdTextPositions = [
+  { x: 811, y: 66 },
+  { x: 587, y: 66 },
+  { x: 364, y: 66 },
+  { x: 140, y: 66 },
+];
 
 const defaultOptions: Required<TscLabelOptions> = {
   widthMm: 108,
@@ -37,24 +63,10 @@ const defaultOptions: Required<TscLabelOptions> = {
   ribbonOn: true,
   tearOn: true,
   codepage: 1252,
-  qrPositions: [
-    { x: 824, y: 170 },
-    { x: 600, y: 170 },
-    { x: 377, y: 170 },
-    { x: 153, y: 170 },
-  ],
-  textPositions: [
-    { x: 815, y: 61 },
-    { x: 591, y: 61 },
-    { x: 368, y: 61 },
-    { x: 144, y: 61 },
-  ],
-  idTextPositions: [
-    { x: 815, y: 90 },
-    { x: 591, y: 90 },
-    { x: 368, y: 90 },
-    { x: 144, y: 90 },
-  ],
+  qrPositions: defaultQrPositions,
+  textPositions: defaultNameTextPositions,
+  idTextPositions: defaultIdTextPositions,
+  nameTextPositions: defaultNameTextPositions,
   qrModel: "L",
   qrSize: 5,
   qrRotation: 180,
@@ -64,6 +76,10 @@ const defaultOptions: Required<TscLabelOptions> = {
   textRotation: 180,
   textXMul: 1,
   textYMul: 8,
+  nameTextFont: "0",
+  nameTextRotation: 180,
+  nameTextXMul: 10,
+  nameTextYMul: 10,
 };
 
 function headerBlock(opts: Required<TscLabelOptions>): string {
@@ -169,18 +185,7 @@ function pageBlockForLabels(
 
   lines.push(`CODEPAGE ${opts.codepage}`);
 
-  // Name text
-  for (let i = 0; i < items.length; i++) {
-    const it = items[i];
-    const pos = opts.textPositions[i];
-    if (!pos) break;
-    const name = sanitizeTsplValue(it.name);
-    lines.push(
-      `TEXT ${pos.x},${pos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${name}"`
-    );
-  }
-
-  // Product ID text
+  // Product ID text (e.g., item code)
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
     const pos = opts.idTextPositions[i];
@@ -188,6 +193,22 @@ function pageBlockForLabels(
     const id = sanitizeTsplValue(it.id);
     lines.push(
       `TEXT ${pos.x},${pos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${id}"`
+    );
+  }
+
+  // Product name text (uses dedicated font settings)
+  const namePositions = opts.nameTextPositions ?? opts.textPositions;
+  const nameFont = opts.nameTextFont ?? opts.textFont;
+  const nameRotation = opts.nameTextRotation ?? opts.textRotation;
+  const nameXMul = opts.nameTextXMul ?? opts.textXMul;
+  const nameYMul = opts.nameTextYMul ?? opts.textYMul;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const pos = namePositions[i];
+    if (!pos) break;
+    const name = sanitizeTsplValue(it.name);
+    lines.push(
+      `TEXT ${pos.x},${pos.y},"${nameFont}",${nameRotation},${nameXMul},${nameYMul},"${name}"`
     );
   }
 
