@@ -98,7 +98,7 @@ function headerBlock(opts: Required<TscLabelOptions>): string {
     `SET CUTTER OFF`,
     `SET PARTIAL_CUTTER OFF`,
     `<xpml></page></xpml>`,
-  ].join("\n");
+  ].join("\n\n");
 }
 
 function pageBlock(values: string[], opts: Required<TscLabelOptions>): string {
@@ -110,31 +110,27 @@ function pageBlock(values: string[], opts: Required<TscLabelOptions>): string {
   );
   lines.push("CLS");
 
-  // QRCODEs
   for (let i = 0; i < values.length; i++) {
-    const val = values[i];
     const pos = opts.qrPositions[i];
     if (!pos) break;
+    const rawValue = values[i];
+    const qrv = sanitizeTsplValue(rawValue);
     lines.push(
-      `QRCODE ${pos.x},${pos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${val}"`
+      `QRCODE ${pos.x},${pos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${qrv}"`
     );
-  }
-
-  lines.push(`CODEPAGE ${opts.codepage}`);
-
-  // TEXT below each QR
-  for (let i = 0; i < values.length; i++) {
-    const val = values[i];
-    const pos = opts.textPositions[i];
-    if (!pos) break;
+    if (i === 0) {
+      lines.push(`CODEPAGE ${opts.codepage}`);
+    }
+    const textPos = opts.textPositions[i];
+    if (!textPos) continue;
     lines.push(
-      `TEXT ${pos.x},${pos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${val}"`
+      `TEXT ${textPos.x},${textPos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${qrv}"`
     );
   }
 
   lines.push("PRINT 1,1");
   lines.push("<xpml></page></xpml>");
-  return lines.join("\n");
+  return lines.join("\n\n");
 }
 
 export function buildTscTxtFromValues(
@@ -152,7 +148,7 @@ export function buildTscTxtFromValues(
     pages.push(pageBlock(slice, opts));
   }
   const endTag = `<xpml><end/></xpml>`;
-  return [head, ...pages, endTag].join("\n");
+  return [head, ...pages, endTag].join("");
 }
 
 function sanitizeTsplValue(value: string): string {
@@ -172,49 +168,44 @@ function pageBlockForLabels(
   );
   lines.push("CLS");
 
-  // QRCODEs
-  for (let i = 0; i < items.length; i++) {
-    const it = items[i];
-    const pos = opts.qrPositions[i];
-    if (!pos) break;
-    const qrv = sanitizeTsplValue(it.qr);
-    lines.push(
-      `QRCODE ${pos.x},${pos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${qrv}"`
-    );
-  }
-
-  lines.push(`CODEPAGE ${opts.codepage}`);
-
-  // Product ID text (e.g., item code)
-  for (let i = 0; i < items.length; i++) {
-    const it = items[i];
-    const pos = opts.idTextPositions[i];
-    if (!pos) break;
-    const id = sanitizeTsplValue(it.id);
-    lines.push(
-      `TEXT ${pos.x},${pos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${id}"`
-    );
-  }
-
-  // Product name text (uses dedicated font settings)
   const namePositions = opts.nameTextPositions ?? opts.textPositions;
   const nameFont = opts.nameTextFont ?? opts.textFont;
   const nameRotation = opts.nameTextRotation ?? opts.textRotation;
   const nameXMul = opts.nameTextXMul ?? opts.textXMul;
   const nameYMul = opts.nameTextYMul ?? opts.textYMul;
+
   for (let i = 0; i < items.length; i++) {
     const it = items[i];
-    const pos = namePositions[i];
-    if (!pos) break;
-    const name = sanitizeTsplValue(it.name);
+    const qrPos = opts.qrPositions[i];
+    if (!qrPos) break;
+    const qrv = sanitizeTsplValue(it.qr);
     lines.push(
-      `TEXT ${pos.x},${pos.y},"${nameFont}",${nameRotation},${nameXMul},${nameYMul},"${name}"`
+      `QRCODE ${qrPos.x},${qrPos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${qrv}"`
     );
+    if (i === 0) {
+      lines.push(`CODEPAGE ${opts.codepage}`);
+    }
+
+    const idPos = opts.idTextPositions[i];
+    if (idPos) {
+      const id = sanitizeTsplValue(it.id);
+      lines.push(
+        `TEXT ${idPos.x},${idPos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${id}"`
+      );
+    }
+
+    const namePos = namePositions[i];
+    if (namePos) {
+      const name = sanitizeTsplValue(it.name);
+      lines.push(
+        `TEXT ${namePos.x},${namePos.y},"${nameFont}",${nameRotation},${nameXMul},${nameYMul},"${name}"`
+      );
+    }
   }
 
   lines.push("PRINT 1,1");
   lines.push("<xpml></page></xpml>");
-  return lines.join("\n");
+  return lines.join("\n\n");
 }
 
 export function buildTscTxtFromLabelData(
@@ -232,5 +223,5 @@ export function buildTscTxtFromLabelData(
     pages.push(pageBlockForLabels(slice, opts));
   }
   const endTag = `<xpml><end/></xpml>`;
-  return [head, ...pages, endTag].join("\n");
+  return [head, ...pages, endTag].join("");
 }
