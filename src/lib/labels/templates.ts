@@ -41,10 +41,10 @@ const defaultQrPositions = [
 ];
 
 const defaultNameTextPositions = [
-  { x: 831, y: 38 },
-  { x: 607, y: 38 },
-  { x: 384, y: 38 },
-  { x: 160, y: 38 },
+  { x: 811, y: 96 },
+  { x: 587, y: 96 },
+  { x: 364, y: 96 },
+  { x: 140, y: 96 },
 ];
 
 const defaultIdTextPositions = [
@@ -68,7 +68,7 @@ const defaultOptions: Required<TscLabelOptions> = {
   idTextPositions: defaultIdTextPositions,
   nameTextPositions: defaultNameTextPositions,
   qrModel: "L",
-  qrSize: 5,
+  qrSize: 4,
   qrRotation: 180,
   qrMask: "M2",
   qrErrorLevel: "S7",
@@ -78,59 +78,77 @@ const defaultOptions: Required<TscLabelOptions> = {
   textYMul: 8,
   nameTextFont: "0",
   nameTextRotation: 180,
-  nameTextXMul: 10,
-  nameTextYMul: 10,
+  nameTextXMul: 9,
+  nameTextYMul: 9,
 };
 
+function appendWithBlank(lines: string[], value: string) {
+  lines.push(value);
+  lines.push("");
+}
+
+function finalizeTemplateLines(lines: string[]): string {
+  if (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+  return lines.join("\n");
+}
+
 function headerBlock(opts: Required<TscLabelOptions>): string {
-  return [
+  const lines: string[] = [];
+  appendWithBlank(
+    lines,
     `<xpml><page quantity='0' pitch='${opts.heightMm.toFixed(
       1
-    )} mm'></xpml>SIZE ${opts.widthMm} mm, ${opts.heightMm} mm`,
-    `GAP ${opts.gapMm} mm, 0 mm`,
-    `SPEED ${opts.speed}`,
-    `DENSITY ${opts.density}`,
-    `SET RIBBON ${opts.ribbonOn ? "ON" : "OFF"}`,
-    `DIRECTION 0,0`,
-    `REFERENCE 0,0`,
-    `OFFSET 0 mm`,
-    `SET PEEL OFF`,
-    `SET CUTTER OFF`,
-    `SET PARTIAL_CUTTER OFF`,
-    `<xpml></page></xpml>`,
-  ].join("\n\n");
+    )} mm'></xpml>SIZE ${opts.widthMm} mm, ${opts.heightMm} mm`
+  );
+  appendWithBlank(lines, `GAP ${opts.gapMm} mm, 0 mm`);
+  appendWithBlank(lines, `SPEED ${opts.speed}`);
+  appendWithBlank(lines, `DENSITY ${opts.density}`);
+  appendWithBlank(lines, `SET RIBBON ${opts.ribbonOn ? "ON" : "OFF"}`);
+  appendWithBlank(lines, `DIRECTION 0,0`);
+  appendWithBlank(lines, `REFERENCE 0,0`);
+  appendWithBlank(lines, `OFFSET 0 mm`);
+  appendWithBlank(lines, `SET PEEL OFF`);
+  appendWithBlank(lines, `SET CUTTER OFF`);
+  appendWithBlank(lines, `SET PARTIAL_CUTTER OFF`);
+  appendWithBlank(lines, `<xpml></page></xpml>`);
+  return finalizeTemplateLines(lines);
 }
 
 function pageBlock(values: string[], opts: Required<TscLabelOptions>): string {
   const lines: string[] = [];
-  lines.push(
+  appendWithBlank(
+    lines,
     `<xpml><page quantity='1' pitch='${opts.heightMm.toFixed(
       1
     )} mm'></xpml>SET TEAR ${opts.tearOn ? "ON" : "OFF"}`
   );
-  lines.push("CLS");
+  appendWithBlank(lines, "CLS");
 
   for (let i = 0; i < values.length; i++) {
     const pos = opts.qrPositions[i];
     if (!pos) break;
     const rawValue = values[i];
     const qrv = sanitizeTsplValue(rawValue);
-    lines.push(
+    appendWithBlank(
+      lines,
       `QRCODE ${pos.x},${pos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${qrv}"`
     );
     if (i === 0) {
-      lines.push(`CODEPAGE ${opts.codepage}`);
+      appendWithBlank(lines, `CODEPAGE ${opts.codepage}`);
     }
     const textPos = opts.textPositions[i];
     if (!textPos) continue;
-    lines.push(
+    appendWithBlank(
+      lines,
       `TEXT ${textPos.x},${textPos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${qrv}"`
     );
   }
 
-  lines.push("PRINT 1,1");
-  lines.push("<xpml></page></xpml>");
-  return lines.join("\n\n");
+  appendWithBlank(lines, "PRINT 1,1");
+  appendWithBlank(lines, "<xpml></page></xpml>");
+  return finalizeTemplateLines(lines);
 }
 
 export function buildTscTxtFromValues(
@@ -161,12 +179,13 @@ function pageBlockForLabels(
   opts: Required<TscLabelOptions>
 ): string {
   const lines: string[] = [];
-  lines.push(
+  appendWithBlank(
+    lines,
     `<xpml><page quantity='1' pitch='${opts.heightMm.toFixed(
       1
     )} mm'></xpml>SET TEAR ${opts.tearOn ? "ON" : "OFF"}`
   );
-  lines.push("CLS");
+  appendWithBlank(lines, "CLS");
 
   const namePositions = opts.nameTextPositions ?? opts.textPositions;
   const nameFont = opts.nameTextFont ?? opts.textFont;
@@ -179,17 +198,19 @@ function pageBlockForLabels(
     const qrPos = opts.qrPositions[i];
     if (!qrPos) break;
     const qrv = sanitizeTsplValue(it.qr);
-    lines.push(
+    appendWithBlank(
+      lines,
       `QRCODE ${qrPos.x},${qrPos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${qrv}"`
     );
     if (i === 0) {
-      lines.push(`CODEPAGE ${opts.codepage}`);
+      appendWithBlank(lines, `CODEPAGE ${opts.codepage}`);
     }
 
     const idPos = opts.idTextPositions[i];
     if (idPos) {
       const id = sanitizeTsplValue(it.id);
-      lines.push(
+      appendWithBlank(
+        lines,
         `TEXT ${idPos.x},${idPos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${id}"`
       );
     }
@@ -197,15 +218,16 @@ function pageBlockForLabels(
     const namePos = namePositions[i];
     if (namePos) {
       const name = sanitizeTsplValue(it.name);
-      lines.push(
+      appendWithBlank(
+        lines,
         `TEXT ${namePos.x},${namePos.y},"${nameFont}",${nameRotation},${nameXMul},${nameYMul},"${name}"`
       );
     }
   }
 
-  lines.push("PRINT 1,1");
-  lines.push("<xpml></page></xpml>");
-  return lines.join("\n\n");
+  appendWithBlank(lines, "PRINT 1,1");
+  appendWithBlank(lines, "<xpml></page></xpml>");
+  return finalizeTemplateLines(lines);
 }
 
 export function buildTscTxtFromLabelData(
