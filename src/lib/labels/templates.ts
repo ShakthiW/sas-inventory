@@ -40,19 +40,14 @@ const defaultQrPositions = [
   { x: 148, y: 175 },
 ];
 
-const defaultNameTextPositions = [
-  { x: 811, y: 96 },
-  { x: 587, y: 96 },
-  { x: 364, y: 96 },
-  { x: 140, y: 96 },
-];
+const NAME_TEXT_OFFSET = { dx: 12, dy: -137 };
 
-const defaultIdTextPositions = [
-  { x: 811, y: 66 },
-  { x: 587, y: 66 },
-  { x: 364, y: 66 },
-  { x: 140, y: 66 },
-];
+const defaultNameTextPositions = defaultQrPositions.map(({ x, y }) => ({
+  x: x + NAME_TEXT_OFFSET.dx,
+  y: y + NAME_TEXT_OFFSET.dy,
+}));
+
+const defaultIdTextPositions = defaultNameTextPositions;
 
 const defaultOptions: Required<TscLabelOptions> = {
   widthMm: 108,
@@ -78,8 +73,8 @@ const defaultOptions: Required<TscLabelOptions> = {
   textYMul: 8,
   nameTextFont: "0",
   nameTextRotation: 180,
-  nameTextXMul: 9,
-  nameTextYMul: 9,
+  nameTextXMul: 10,
+  nameTextYMul: 10,
 };
 
 function appendWithBlank(lines: string[], value: string) {
@@ -204,15 +199,6 @@ function pageBlockForLabels(
     );
     if (i === 0) {
       appendWithBlank(lines, `CODEPAGE ${opts.codepage}`);
-    }
-
-    const idPos = opts.idTextPositions[i];
-    if (idPos) {
-      const id = sanitizeTsplValue(it.id);
-      appendWithBlank(
-        lines,
-        `TEXT ${idPos.x},${idPos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${id}"`
-      );
     }
 
     const namePos = namePositions[i];
