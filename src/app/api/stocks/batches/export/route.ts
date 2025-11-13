@@ -83,9 +83,12 @@ export async function GET(request: NextRequest) {
 
   // Build label data: QR encodes id|name|unit; text shows name and product ID
   const labels: LabelData[] = items.map((it) => {
-    const p = it.productId ? productById.get(it.productId) : undefined;
-    const id = (it.productId ?? (p?._id ? String(p._id) : "")).toString();
-    const name = (p?.name ?? it.name ?? "").toString();
+    const productIdStr = it.productId ? String(it.productId) : "";
+    const p = productIdStr ? productById.get(productIdStr) : undefined;
+    const id = (productIdStr || (p?._id ? String(p._id) : "")).toString();
+    const rawName = (p?.name ?? "").toString();
+    const fallbackName = (it.name ?? "").toString();
+    const name = rawName || fallbackName;
     const unit = (p?.unit ?? it.unit ?? "").toString();
     const qr = [id, name, unit].join("|");
     return { qr, name, id };
