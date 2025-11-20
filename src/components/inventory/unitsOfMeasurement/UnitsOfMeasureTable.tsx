@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Loader2Icon, Trash2Icon } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
 import {
   flexRender,
@@ -8,6 +9,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +31,9 @@ import AddUnitsOfMeasureDialog from "./AddUnitsOfMeasureDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
 import type { UnitListItem } from "@/lib/types";
 
-type Row = UnitListItem;
+type Row = UnitListItem & {
+  baseUnitId?: string;
+};
 
 type ApiResponse = {
   data: Array<{
@@ -46,34 +50,6 @@ type ApiResponse = {
   }>;
 };
 
-const columns: ColumnDef<Row>[] = [
-  { header: "Name", accessorKey: "name" },
-  { header: "Short", accessorKey: "shortName" },
-  {
-    header: "Type",
-    accessorKey: "kind",
-    cell: ({ row }) => <div className="capitalize">{row.original.kind}</div>,
-  },
-  { header: "Base Unit", accessorKey: "baseUnitName" },
-  { header: "Per Pack", accessorKey: "unitsPerPack" },
-  {
-    header: "Active",
-    accessorKey: "isActive",
-    cell: ({ row }) => <ActiveStatusBadge active={!!row.original.isActive} />,
-  },
-  {
-    header: "Added",
-    accessorKey: "createdAt",
-    cell: ({ row }) => (
-      <div>
-        {row.original.createdAt
-          ? new Date(row.original.createdAt).toLocaleDateString()
-          : "-"}
-      </div>
-    ),
-  },
-];
-
 export default function UnitsOfMeasureTable() {
   const [q, setQ] = React.useState("");
   const [dir, setDir] = React.useState<"asc" | "desc">("asc");
@@ -82,6 +58,7 @@ export default function UnitsOfMeasureTable() {
   const [limit, setLimit] = React.useState(20);
   const [loading, setLoading] = React.useState(false);
   const [allRows, setAllRows] = React.useState<Row[]>([]);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -100,6 +77,7 @@ export default function UnitsOfMeasureTable() {
         shortName: d.shortName,
         kind: (d.kind === "pack" ? "pack" : "base") as Row["kind"],
         isActive: d.isActive,
+        baseUnitId: d.baseUnitId,
         baseUnitName: d.baseUnitName,
         unitsPerPack: d.unitsPerPack,
         createdAt: d.createdAt,
@@ -113,6 +91,158 @@ export default function UnitsOfMeasureTable() {
   React.useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      try {
+        const res = await fetch(`/api/inventory/units/${id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          const message =
+            data?.error ?? "Failed to delete the unit. Please try again.";
+          throw new Error(message);
+        }
+
+        const removedPackUnitIds = Array.isArray(data?.removedPackUnitIds)
+          ? (data.removedPackUnitIds as string[])
+          : [];
+        const removedIds = new Set([id, ...removedPackUnitIds]);
+
+        setAllRows((prev) => {
+          const next = prev.filter((row) => !removedIds.has(row.id));
+          setPage((currentPage) => {
+            if (currentPage > 1 && (currentPage - 1) * limit >= next.length) {
+              return Math.max(currentPage - 1, 1);
+            }
+            return currentPage;
+          });
+          return next;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the unit. Please try again.";
+        console.error(message);
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        throw error instanceof Error ? error : new Error(message);
+      } finally {
+        setDeletingId((current) => (current === id ? null : current));
+      }
+    },
+    [limit]
+  );
+
+  const columns = React.useMemo<ColumnDef<Row>[]>(
+    () => [
+      { header: "Name", accessorKey: "name" },
+      { header: "Short", accessorKey: "shortName" },
+      {
+        header: "Type",
+        accessorKey: "kind",
+        cell: ({ row }) => (
+          <div className="capitalize">{row.original.kind}</div>
+        ),
+      },
+      { header: "Base Unit", accessorKey: "baseUnitName" },
+      {
+        header: "Per Pack",
+        accessorKey: "unitsPerPack",
+        cell: ({ row }) => {
+          if (row.original.kind !== "pack") {
+            return <div>—</div>;
+          }
+          const value = row.original.unitsPerPack;
+          return <div>{typeof value === "number" ? value : "-"}</div>;
+        },
+      },
+      {
+        header: "Active",
+        accessorKey: "isActive",
+        cell: ({ row }) => (
+          <ActiveStatusBadge active={!!row.original.isActive} />
+        ),
+      },
+      {
+        header: "Added",
+        accessorKey: "createdAt",
+        cell: ({ row }) => (
+          <div>
+            {row.original.createdAt
+              ? new Date(row.original.createdAt).toLocaleDateString()
+              : "-"}
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const unit = row.original;
+          const unitId = unit.id;
+          if (!unitId) {
+            return null;
+          }
+          const isDeleting = deletingId === unitId;
+          const dependentPackCount =
+            unit.kind === "base"
+              ? allRows.filter((candidate) => candidate.baseUnitId === unitId)
+                  .length
+              : 0;
+          let description: string;
+          if (unit.kind === "base") {
+            const label = unit.name || "this base unit";
+            description =
+              dependentPackCount > 0
+                ? `Deleting ${label} will also delete ${dependentPackCount} associated pack unit${
+                    dependentPackCount === 1 ? "" : "s"
+                  }. This action cannot be undone.`
+                : `Deleting ${label} will also delete any associated pack units. This action cannot be undone.`;
+          } else {
+            description = unit.name
+              ? `Are you sure you want to delete ${unit.name}? This action cannot be undone.`
+              : "Are you sure you want to delete this unit? This action cannot be undone.";
+          }
+
+          return (
+            <ConfirmDialog
+              title="Delete unit?"
+              description={description}
+              confirmLabel="Delete"
+              loadingLabel="Deleting…"
+              icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive focus-visible:ring-destructive"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="size-4" />
+                  )}
+                  <span className="sr-only">Delete unit</span>
+                </Button>
+              }
+              onConfirm={() => handleDelete(unitId)}
+            />
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+        size: 56,
+      },
+    ],
+    [allRows, deletingId, handleDelete]
+  );
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
