@@ -2,12 +2,14 @@
 
 import React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
+import { Loader2Icon, Trash2Icon } from "lucide-react";
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -63,76 +65,6 @@ type ApiResponse = {
   };
 };
 
-const columns: ColumnDef<ProductRow>[] = [
-  {
-    header: "Product",
-    accessorKey: "name",
-    cell: ({ row }) => {
-      const { image, name } = row.original as ProductRow;
-      const fallback = name
-        .split(" ")
-        .map((p) => p[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-      return (
-        <div className="flex items-center gap-3">
-          <Avatar className="size-10">
-            {image ? (
-              <AvatarImage src={image} alt={name} />
-            ) : (
-              <AvatarFallback className="text-xs">{fallback}</AvatarFallback>
-            )}
-          </Avatar>
-          <div className="font-medium">{name}</div>
-        </div>
-      );
-    },
-  },
-  { header: "SKU", accessorKey: "sku" },
-  { header: "Category", accessorKey: "category" },
-  { header: "Brand", accessorKey: "brand" },
-  {
-    header: "Stock",
-    accessorKey: "quantity",
-    cell: ({ row }) => {
-      const quantity = row.original.quantity ?? 0;
-      const alert = row.original.qtyAlert ?? undefined;
-      let colorClass = "";
-      if (alert && alert > 0) {
-        const ratio = quantity / alert;
-        if (quantity <= 0) colorClass = "text-destructive bg-destructive/10";
-        else if (ratio <= 1) colorClass = "text-destructive bg-destructive/10";
-        else if (ratio <= 1.5)
-          colorClass =
-            "text-amber-600 bg-amber-600/10 dark:text-amber-400 dark:bg-amber-400/10";
-        else
-          colorClass =
-            "text-green-600 bg-green-600/10 dark:text-green-400 dark:bg-green-400/10";
-      } else {
-        colorClass = "text-muted-foreground bg-muted/30";
-      }
-      return <Badge className={`border-none ${colorClass}`}>{quantity}</Badge>;
-    },
-  },
-  {
-    header: "Price",
-    accessorKey: "price",
-    cell: ({ row }) => {
-      const value = row.getValue<number>("price");
-      return <div>{value ?? "-"}</div>;
-    },
-  },
-  {
-    header: "Added",
-    accessorKey: "createdAt",
-    cell: ({ row }) => {
-      const v = row.getValue<string>("createdAt");
-      return <div>{v ? new Date(v).toLocaleDateString() : "-"}</div>;
-    },
-  },
-];
-
 export default function ProductTable() {
   const [q, setQ] = React.useState("");
   const [sort, setSort] = React.useState<"createdAt" | "name" | "price">(
@@ -144,6 +76,7 @@ export default function ProductTable() {
   const [loading, setLoading] = React.useState(false);
   const [rows, setRows] = React.useState<ProductRow[]>([]);
   const [meta, setMeta] = React.useState<ApiResponse["meta"] | null>(null);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
@@ -193,6 +126,176 @@ export default function ProductTable() {
   React.useEffect(() => {
     fetchData();
   }, [page, fetchData]);
+
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      try {
+        const res = await fetch(`/api/inventory/products/${id}`, {
+          method: "DELETE",
+        });
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          const message =
+            data?.error ?? "Failed to delete the product. Please try again.";
+          throw new Error(message);
+        }
+
+        const shouldGoPrev = rows.length <= 1 && page > 1;
+
+        setRows((prev) => prev.filter((row) => row.id !== id));
+        setMeta((prev) =>
+          prev
+            ? {
+                ...prev,
+                total: Math.max(prev.total - 1, 0),
+              }
+            : prev
+        );
+
+        if (shouldGoPrev) {
+          setPage((p) => Math.max(p - 1, 1));
+        } else {
+          await fetchData();
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the product. Please try again.";
+        console.error(message);
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        throw error instanceof Error ? error : new Error(message);
+      } finally {
+        setDeletingId((current) => (current === id ? null : current));
+      }
+    },
+    [rows.length, page, fetchData]
+  );
+
+  const columns = React.useMemo<ColumnDef<ProductRow>[]>(
+    () => [
+      {
+        header: "Product",
+        accessorKey: "name",
+        cell: ({ row }) => {
+          const { image, name } = row.original as ProductRow;
+          const fallback = name
+            .split(" ")
+            .map((p) => p[0])
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+          return (
+            <div className="flex items-center gap-3">
+              <Avatar className="size-10">
+                {image ? (
+                  <AvatarImage src={image} alt={name} />
+                ) : (
+                  <AvatarFallback className="text-xs">
+                    {fallback}
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              <div className="font-medium">{name}</div>
+            </div>
+          );
+        },
+      },
+      { header: "SKU", accessorKey: "sku" },
+      { header: "Category", accessorKey: "category" },
+      { header: "Brand", accessorKey: "brand" },
+      {
+        header: "Stock",
+        accessorKey: "quantity",
+        cell: ({ row }) => {
+          const quantity = row.original.quantity ?? 0;
+          const alert = row.original.qtyAlert ?? undefined;
+          let colorClass = "";
+          if (alert && alert > 0) {
+            const ratio = quantity / alert;
+            if (quantity <= 0) colorClass = "text-destructive bg-destructive/10";
+            else if (ratio <= 1)
+              colorClass = "text-destructive bg-destructive/10";
+            else if (ratio <= 1.5)
+              colorClass =
+                "text-amber-600 bg-amber-600/10 dark:text-amber-400 dark:bg-amber-400/10";
+            else
+              colorClass =
+                "text-green-600 bg-green-600/10 dark:text-green-400 dark:bg-green-400/10";
+          } else {
+            colorClass = "text-muted-foreground bg-muted/30";
+          }
+          return (
+            <Badge className={`border-none ${colorClass}`}>{quantity}</Badge>
+          );
+        },
+      },
+      {
+        header: "Price",
+        accessorKey: "price",
+        cell: ({ row }) => {
+          const value = row.getValue<number>("price");
+          return <div>{value ?? "-"}</div>;
+        },
+      },
+      {
+        header: "Added",
+        accessorKey: "createdAt",
+        cell: ({ row }) => {
+          const v = row.getValue<string>("createdAt");
+          return <div>{v ? new Date(v).toLocaleDateString() : "-"}</div>;
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const product = row.original;
+          const productId = product.id;
+          const isDeleting = deletingId === productId;
+          const description = product.name
+            ? `Are you sure you want to delete ${product.name}? This action cannot be undone.`
+            : "Are you sure you want to delete this product? This action cannot be undone.";
+
+          return (
+            <ConfirmDialog
+              title="Delete product?"
+              description={description}
+              confirmLabel="Delete"
+              loadingLabel="Deleting…"
+              icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive focus-visible:ring-destructive"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="size-4" />
+                  )}
+                  <span className="sr-only">Delete product</span>
+                </Button>
+              }
+              onConfirm={() => handleDelete(productId)}
+            />
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+        size: 56,
+      },
+    ],
+    [deletingId, handleDelete]
+  );
+
+  const columnCount = columns.length;
 
   const total = meta?.total ?? 0;
   const pages = meta?.pages ?? 1;
@@ -277,7 +380,7 @@ export default function ProductTable() {
             {loading ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={columnCount}
                   className="h-24 text-center"
                 >
                   Loading…
@@ -299,7 +402,7 @@ export default function ProductTable() {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={columnCount}
                   className="h-24 text-center"
                 >
                   No results.
