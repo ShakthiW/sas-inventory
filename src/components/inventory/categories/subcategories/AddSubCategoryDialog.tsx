@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +67,7 @@ export default function AddSubCategoryDialog({
   const [categories, setCategories] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [saving, setSaving] = React.useState(false);
 
   const form = useForm<z.input<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -112,6 +114,8 @@ export default function AddSubCategoryDialog({
   }, []);
 
   async function onSubmit(values: z.input<typeof formSchema>) {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = values as SubCategoryCreatePayload;
       const res = await fetch("/api/inventory/categories/subcategories", {
@@ -119,14 +123,24 @@ export default function AddSubCategoryDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to create sub category");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          (body as { error?: string }).error ??
+          "Failed to create sub category. Please try again.";
+        throw new Error(message);
+      }
       toast.success("Sub category created");
       setOpen(false);
       form.reset();
       onCreated?.();
     } catch (e) {
       console.error(e);
-      toast.error("Could not create sub category");
+      toast.error(
+        e instanceof Error ? e.message : "Could not create sub category"
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -237,11 +251,20 @@ export default function AddSubCategoryDialog({
             />
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={saving}>
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit">Save Sub Category</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save Sub Category"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

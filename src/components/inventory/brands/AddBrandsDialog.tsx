@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,12 +43,15 @@ type AddBrandsDialogProps = { onCreated?: () => void };
 
 export default function AddBrandsDialog({ onCreated }: AddBrandsDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
   const form = useForm<z.input<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { name: "", description: "", logoUrl: "", isActive: true },
   });
 
   async function onSubmit(values: z.input<typeof formSchema>) {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload: BrandCreatePayload = {
         name: values.name,
@@ -63,14 +67,22 @@ export default function AddBrandsDialog({ onCreated }: AddBrandsDialogProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to create brand");
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          (body as { error?: string }).error ??
+          "Failed to create brand. Please try again.";
+        throw new Error(message);
+      }
       toast.success("Brand created");
       setOpen(false);
       form.reset();
       onCreated?.();
     } catch (e) {
       console.error(e);
-      toast.error("Could not create brand");
+      toast.error(e instanceof Error ? e.message : "Could not create brand");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -155,11 +167,20 @@ export default function AddBrandsDialog({ onCreated }: AddBrandsDialogProps) {
             />
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={saving}>
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit">Save Brand</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save Brand"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +59,7 @@ export default function AddCategoryDialog({
   const [open, setOpen] = React.useState(false);
   const [subName, setSubName] = React.useState("");
   const [subNames, setSubNames] = React.useState<string[]>([]);
+  const [saving, setSaving] = React.useState(false);
   const form = useForm<z.input<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { name: "", slug: "", description: "", isActive: true },
@@ -70,6 +72,8 @@ export default function AddCategoryDialog({
   }, [nameWatch, form]);
 
   async function onSubmit(values: z.input<typeof formSchema>) {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = values as CategoryCreatePayload;
       const res = await fetch("/api/inventory/categories", {
@@ -77,8 +81,14 @@ export default function AddCategoryDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to create category");
-      const created = (await res.json()) as { insertedId?: string };
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          (body as { error?: string }).error ??
+          "Failed to create category. Please try again.";
+        throw new Error(message);
+      }
+      const created = body as { insertedId?: string };
 
       // Create subcategories if provided
       if (created?.insertedId && subNames.length) {
@@ -104,7 +114,9 @@ export default function AddCategoryDialog({
       onCreated?.();
     } catch (e) {
       console.error(e);
-      toast.error("Could not create category");
+      toast.error(e instanceof Error ? e.message : "Could not create category");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -210,6 +222,7 @@ export default function AddCategoryDialog({
                     if (!subNames.includes(n)) setSubNames((s) => [...s, n]);
                     setSubName("");
                   }}
+                  disabled={saving}
                 >
                   Add
                 </Button>
@@ -236,11 +249,20 @@ export default function AddCategoryDialog({
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={saving}>
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit">Save Category</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save Category"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

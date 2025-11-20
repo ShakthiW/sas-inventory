@@ -1,19 +1,11 @@
 import { ObjectId } from "mongodb";
 import { getDb } from "@/lib/db";
 
-type RouteContext = {
-  params:
-    | {
-        id: string;
-      }
-    | Promise<{
-        id: string;
-      }>;
-};
-
-export async function DELETE(_request: Request, context: RouteContext) {
-  const params = await Promise.resolve(context.params);
-  const { id } = params;
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
 
   if (!ObjectId.isValid(id)) {
     return Response.json(
@@ -96,4 +88,3 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   }
 }
-

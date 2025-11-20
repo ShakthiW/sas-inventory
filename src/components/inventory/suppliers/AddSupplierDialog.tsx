@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ export default function AddSupplierDialog({
   onCreated,
 }: AddSupplierDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
   const form = useForm<z.input<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -99,6 +101,8 @@ export default function AddSupplierDialog({
   }
 
   async function onSubmit(values: z.input<typeof formSchema>) {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = values as SupplierCreatePayload;
       const res = await fetch("/api/inventory/suppliers", {
@@ -106,7 +110,12 @@ export default function AddSupplierDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to create supplier");
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message =
+          data?.error ?? "Failed to create supplier. Please try again.";
+        throw new Error(message);
+      }
       toast.success("Supplier created");
       // close dialog and reset
       setOpen(false);
@@ -114,7 +123,11 @@ export default function AddSupplierDialog({
       onCreated?.();
     } catch (err) {
       console.error(err);
-      toast.error("Could not create supplier");
+      toast.error(
+        err instanceof Error ? err.message : "Could not create supplier"
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -275,11 +288,20 @@ export default function AddSupplierDialog({
 
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={saving}>
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit">Save Supplier</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save Supplier"
+                )}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

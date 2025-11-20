@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -309,12 +310,19 @@ export default function AddUnitsOfMeasureDialog({
 
             <DialogFooter>
               <DialogClose asChild>
-                <Button type="button" variant="outline">
+                <Button type="button" variant="outline" disabled={saving}>
                   Cancel
                 </Button>
               </DialogClose>
               <Button type="submit" disabled={saving}>
-                {saving ? "Saving…" : "Save Unit"}
+                {saving ? (
+                  <>
+                    <Loader2Icon className="mr-2 size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  "Save Unit"
+                )}
               </Button>
             </DialogFooter>
           </form>
