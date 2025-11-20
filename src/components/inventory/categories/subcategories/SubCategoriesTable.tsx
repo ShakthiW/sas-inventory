@@ -1,14 +1,16 @@
 "use client";
 
 import React from "react";
-import type { SubCategoryListItem } from "@/lib/types";
+import { Loader2Icon, Trash2Icon } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { SubCategoryListItem } from "@/lib/types";
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,28 +47,6 @@ type ApiResponse = {
   }>;
 };
 
-const columns: ColumnDef<Row>[] = [
-  { header: "Name", accessorKey: "name" },
-  { header: "Slug", accessorKey: "slug" },
-  { header: "Parent", accessorKey: "parentCategoryName" },
-  {
-    header: "Active",
-    accessorKey: "isActive",
-    cell: ({ row }) => <ActiveStatusBadge active={!!row.original.isActive} />,
-  },
-  {
-    header: "Added",
-    accessorKey: "createdAt",
-    cell: ({ row }) => (
-      <div>
-        {row.original.createdAt
-          ? new Date(row.original.createdAt).toLocaleDateString()
-          : "-"}
-      </div>
-    ),
-  },
-];
-
 export default function SubCategoriesTable() {
   const [q, setQ] = React.useState("");
   const [dir, setDir] = React.useState<"asc" | "desc">("asc");
@@ -75,6 +55,7 @@ export default function SubCategoriesTable() {
   const [limit, setLimit] = React.useState(20);
   const [loading, setLoading] = React.useState(false);
   const [allRows, setAllRows] = React.useState<Row[]>([]);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -108,6 +89,126 @@ export default function SubCategoriesTable() {
   React.useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      try {
+        const res = await fetch(
+          `/api/inventory/categories/subcategories/${id}`,
+          {
+            method: "DELETE",
+          }
+        );
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const message =
+            data?.error ??
+            "Failed to delete the subcategory. Please try again.";
+          throw new Error(message);
+        }
+
+        setAllRows((prev) => {
+          const next = prev.filter((row) => row.id !== id);
+          setPage((currentPage) => {
+            if (
+              currentPage > 1 &&
+              (currentPage - 1) * limit >= next.length
+            ) {
+              return Math.max(currentPage - 1, 1);
+            }
+            return currentPage;
+          });
+          return next;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the subcategory. Please try again.";
+        console.error(message);
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        throw error instanceof Error ? error : new Error(message);
+      } finally {
+        setDeletingId((current) => (current === id ? null : current));
+      }
+    },
+    [limit]
+  );
+
+  const columns = React.useMemo<ColumnDef<Row>[]>(
+    () => [
+      { header: "Name", accessorKey: "name" },
+      { header: "Slug", accessorKey: "slug" },
+      { header: "Parent", accessorKey: "parentCategoryName" },
+      {
+        header: "Active",
+        accessorKey: "isActive",
+        cell: ({ row }) => (
+          <ActiveStatusBadge active={!!row.original.isActive} />
+        ),
+      },
+      {
+        header: "Added",
+        accessorKey: "createdAt",
+        cell: ({ row }) => (
+          <div>
+            {row.original.createdAt
+              ? new Date(row.original.createdAt).toLocaleDateString()
+              : "-"}
+          </div>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const subCategory = row.original;
+          const subCategoryId = subCategory.id;
+          if (!subCategoryId) {
+            return null;
+          }
+          const isDeleting = deletingId === subCategoryId;
+          const description = subCategory.name
+            ? `Are you sure you want to delete ${subCategory.name}? This action cannot be undone.`
+            : "Are you sure you want to delete this subcategory? This action cannot be undone.";
+
+          return (
+            <ConfirmDialog
+              title="Delete subcategory?"
+              description={description}
+              confirmLabel="Delete"
+              loadingLabel="Deleting…"
+              icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive focus-visible:ring-destructive"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="size-4" />
+                  )}
+                  <span className="sr-only">Delete subcategory</span>
+                </Button>
+              }
+              onConfirm={() => handleDelete(subCategoryId)}
+            />
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+        size: 56,
+      },
+    ],
+    [deletingId, handleDelete]
+  );
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -221,10 +322,7 @@ export default function SubCategoriesTable() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   Loading…
                 </TableCell>
               </TableRow>
@@ -243,10 +341,7 @@ export default function SubCategoriesTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
