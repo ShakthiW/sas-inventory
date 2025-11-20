@@ -147,9 +147,7 @@ export default function AddUnitsOfMeasureDialog({
       onCreated?.();
     } catch (e) {
       console.error(e);
-      toast.error(
-        e instanceof Error ? e.message : "Could not create unit"
-      );
+      toast.error(e instanceof Error ? e.message : "Could not create unit");
     } finally {
       setSaving(false);
     }
