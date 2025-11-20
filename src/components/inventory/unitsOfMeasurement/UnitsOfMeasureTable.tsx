@@ -190,19 +190,17 @@ export default function UnitsOfMeasureTable() {
             return null;
           }
           const isDeleting = deletingId === unitId;
-          const dependentPackCount =
+          const dependentPacks =
             unit.kind === "base"
               ? allRows.filter((candidate) => candidate.baseUnitId === unitId)
-                  .length
-              : 0;
+              : [];
+          const dependentPackCount = dependentPacks.length;
           let description: string;
           if (unit.kind === "base") {
             const label = unit.name || "this base unit";
             description =
               dependentPackCount > 0
-                ? `Deleting ${label} will also delete ${dependentPackCount} associated pack unit${
-                    dependentPackCount === 1 ? "" : "s"
-                  }. This action cannot be undone.`
+                ? `Deleting ${label} will also delete the pack units listed below. This action cannot be undone.`
                 : `Deleting ${label} will also delete any associated pack units. This action cannot be undone.`;
           } else {
             description = unit.name
@@ -217,6 +215,39 @@ export default function UnitsOfMeasureTable() {
               confirmLabel="Delete"
               loadingLabel="Deleting…"
               icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              body={
+                unit.kind === "base" && dependentPackCount > 0 ? (
+                  <div className="space-y-3">
+                    <div className="font-medium text-foreground">
+                      Pack units to be deleted
+                    </div>
+                    <ul className="space-y-2 text-muted-foreground">
+                      {dependentPacks.map((pack) => (
+                        <li
+                          key={pack.id}
+                          className="flex flex-col gap-0.5 rounded-md border border-border/60 bg-muted/30 px-3 py-2"
+                        >
+                          <div className="font-medium text-foreground">
+                            {pack.name}
+                          </div>
+                          <div className="text-xs uppercase tracking-wide text-muted-foreground/80">
+                            {[
+                              pack.shortName
+                                ? `Short: ${pack.shortName}`
+                                : null,
+                              typeof pack.unitsPerPack === "number"
+                                ? `${pack.unitsPerPack} per pack`
+                                : null,
+                            ]
+                              .filter(Boolean)
+                              .join(" • ") || "Pack details unavailable"}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : undefined
+              }
               trigger={
                 <Button
                   variant="ghost"

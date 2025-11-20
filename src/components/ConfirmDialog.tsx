@@ -19,6 +19,7 @@ export type ConfirmDialogProps = {
   trigger: React.ReactNode;
   title: React.ReactNode;
   description?: React.ReactNode;
+  body?: React.ReactNode;
   confirmLabel?: React.ReactNode;
   cancelLabel?: React.ReactNode;
   loadingLabel?: React.ReactNode;
@@ -31,6 +32,7 @@ export default function ConfirmDialog({
   trigger,
   title,
   description,
+  body,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
   loadingLabel = "Working…",
@@ -85,6 +87,12 @@ export default function ConfirmDialog({
             ) : null}
           </AlertDialogHeader>
         </div>
+
+        {body ? (
+          <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+            {body}
+          </div>
+        ) : null}
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>

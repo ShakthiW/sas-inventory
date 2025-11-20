@@ -63,6 +63,7 @@ export default function AddUnitsOfMeasureDialog({
   const [baseUnits, setBaseUnits] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
+  const [saving, setSaving] = React.useState(false);
 
   const form = useForm<z.input<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -116,6 +117,8 @@ export default function AddUnitsOfMeasureDialog({
   }, [open, loadBaseUnits]);
 
   async function onSubmit(values: z.input<typeof formSchema>) {
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = values as UnitOfMeasureCreatePayload;
       const res = await fetch("/api/inventory/units", {
@@ -123,8 +126,13 @@ export default function AddUnitsOfMeasureDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Failed to create unit");
-      const created = (await res.json()) as { insertedId?: string };
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          (body as { error?: string }).error ?? "Failed to create unit";
+        throw new Error(message);
+      }
+      const created = body as { insertedId?: string };
       if (values.kind === "base" && created?.insertedId) {
         // Optimistically add to baseUnits so it's immediately selectable
         setBaseUnits((prev) => [
@@ -138,7 +146,11 @@ export default function AddUnitsOfMeasureDialog({
       onCreated?.();
     } catch (e) {
       console.error(e);
-      toast.error("Could not create unit");
+      toast.error(
+        e instanceof Error ? e.message : "Could not create unit"
+      );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -301,7 +313,9 @@ export default function AddUnitsOfMeasureDialog({
                   Cancel
                 </Button>
               </DialogClose>
-              <Button type="submit">Save Unit</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving…" : "Save Unit"}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
