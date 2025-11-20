@@ -3,7 +3,11 @@
 import React from "react";
 import { Loader2Icon, Trash2Icon } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { CategoryListItem, CategorySortField } from "@/lib/types";
+import type {
+  CategoryListItem,
+  CategorySortField,
+  SubCategoryListItem,
+} from "@/lib/types";
 import {
   flexRender,
   getCoreRowModel,
@@ -45,6 +49,17 @@ type ApiResponse = {
   }>;
 };
 
+type SubCategoryResponse = {
+  data: Array<{
+    id?: string;
+    _id?: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    parentCategoryId: string;
+  }>;
+};
+
 export default function CategoryTable() {
   const [q, setQ] = React.useState("");
   const [dir, setDir] = React.useState<"asc" | "desc">("asc");
@@ -54,6 +69,9 @@ export default function CategoryTable() {
   const [loading, setLoading] = React.useState(false);
   const [allRows, setAllRows] = React.useState<CategoryRow[]>([]);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [subCategories, setSubCategories] = React.useState<
+    SubCategoryListItem[]
+  >([]);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -84,6 +102,35 @@ export default function CategoryTable() {
     fetchAll();
   }, [fetchAll]);
 
+  const fetchSubCategories = React.useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        sort: "name",
+        dir: "asc",
+        page: "1",
+        limit: "500",
+      });
+      const res = await fetch(
+        `/api/inventory/categories/subcategories?${params.toString()}`
+      );
+      const json: SubCategoryResponse = await res.json();
+      const mapped: SubCategoryListItem[] = (json.data || []).map((d) => ({
+        id: (d.id || d._id || "") as string,
+        name: d.name,
+        slug: d.slug,
+        description: d.description,
+        parentCategoryId: d.parentCategoryId,
+      }));
+      setSubCategories(mapped);
+    } catch {
+      setSubCategories([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchSubCategories();
+  }, [fetchSubCategories]);
+
   const handleDelete = React.useCallback(
     async (id: string) => {
       setDeletingId(id);
@@ -92,12 +139,20 @@ export default function CategoryTable() {
           method: "DELETE",
         });
 
+        const data = await res.json().catch(() => null);
+
         if (!res.ok) {
-          const data = await res.json().catch(() => null);
           const message =
             data?.error ?? "Failed to delete the category. Please try again.";
           throw new Error(message);
         }
+
+        const removedSubCategoryIds = Array.isArray(
+          data?.removedSubCategoryIds
+        )
+          ? (data.removedSubCategoryIds as string[])
+          : [];
+        const removedSet = new Set([id, ...removedSubCategoryIds]);
 
         setAllRows((prev) => {
           const next = prev.filter((row) => row.id !== id);
@@ -112,6 +167,13 @@ export default function CategoryTable() {
           });
           return next;
         });
+
+        setSubCategories((prev) =>
+          prev.filter(
+            (sub) =>
+              sub.parentCategoryId !== id && !removedSet.has(sub.id)
+          )
+        );
       } catch (error) {
         const message =
           error instanceof Error
@@ -158,9 +220,25 @@ export default function CategoryTable() {
             return null;
           }
           const isDeleting = deletingId === categoryId;
-          const description = category.name
-            ? `Are you sure you want to delete ${category.name}? This action cannot be undone.`
-            : "Are you sure you want to delete this category? This action cannot be undone.";
+          const dependentSubCategories =
+            subCategories.length > 0
+              ? subCategories.filter(
+                  (sub) => sub.parentCategoryId === categoryId
+                )
+              : [];
+          const dependentCount = dependentSubCategories.length;
+          let description: string;
+          if (category.name) {
+            description =
+              dependentCount > 0
+                ? `Deleting ${category.name} will also delete ${dependentCount} subcategor${dependentCount === 1 ? "y" : "ies"}. This action cannot be undone.`
+                : `Are you sure you want to delete ${category.name}? This action cannot be undone.`;
+          } else {
+            description =
+              dependentCount > 0
+                ? `Deleting this category will also delete ${dependentCount} subcategor${dependentCount === 1 ? "y" : "ies"}. This action cannot be undone.`
+                : "Are you sure you want to delete this category? This action cannot be undone.";
+          }
 
           return (
             <ConfirmDialog
@@ -169,6 +247,30 @@ export default function CategoryTable() {
               confirmLabel="Delete"
               loadingLabel="Deleting…"
               icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              body={
+                dependentCount > 0 ? (
+                  <div className="space-y-3">
+                    <div className="font-medium text-foreground">
+                      Subcategories to be deleted
+                    </div>
+                    <ul className="space-y-2 text-muted-foreground">
+                      {dependentSubCategories.map((sub) => (
+                        <li
+                          key={sub.id}
+                          className="flex flex-col gap-0.5 rounded-md border border-border/60 bg-muted/30 px-3 py-2"
+                        >
+                          <div className="font-medium text-foreground">
+                            {sub.name}
+                          </div>
+                          <div className="text-xs uppercase tracking-wide text-muted-foreground/80">
+                            {sub.slug ? `Slug: ${sub.slug}` : "No slug defined"}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : undefined
+              }
               trigger={
                 <Button
                   variant="ghost"
@@ -193,7 +295,7 @@ export default function CategoryTable() {
         size: 56,
       },
     ],
-    [deletingId, handleDelete]
+    [deletingId, handleDelete, subCategories]
   );
 
   const filtered = React.useMemo(() => {

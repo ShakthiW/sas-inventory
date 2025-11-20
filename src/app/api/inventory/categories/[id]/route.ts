@@ -26,10 +26,45 @@ export async function DELETE(_request: Request, context: RouteContext) {
 
   try {
     const db = await getDb();
-    const collection = db.collection("product_categories");
+    const categories = db.collection("product_categories");
+    const subCategories = db.collection("product_subcategories");
+    const categoryObjectId = new ObjectId(id);
 
-    const result = await collection.deleteOne({
-      _id: new ObjectId(id),
+    const existing = await categories.findOne({
+      _id: categoryObjectId,
+    });
+
+    if (!existing) {
+      return Response.json(
+        { error: "Category not found" },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const subDocs = await subCategories
+      .find(
+        {
+          parentCategoryId: categoryObjectId,
+        },
+        {
+          projection: { _id: 1 },
+        }
+      )
+      .toArray();
+
+    let removedSubCategoryIds: string[] = [];
+    if (subDocs.length) {
+      const ids = subDocs.map((doc) => doc._id);
+      removedSubCategoryIds = ids.map((docId) => docId.toString());
+      await subCategories.deleteMany({
+        _id: { $in: ids },
+      });
+    }
+
+    const result = await categories.deleteOne({
+      _id: categoryObjectId,
     });
 
     if (result.deletedCount === 0) {
@@ -44,6 +79,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
     return Response.json(
       {
         success: true,
+        removedSubCategoryIds,
       },
       { status: 200 }
     );
