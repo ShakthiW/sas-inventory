@@ -63,11 +63,17 @@ function slugify(input: string) {
 export default function AddSubCategoryDialog({
   onCreated,
 }: AddSubCategoryDialogProps) {
+  const NEW_CATEGORY_VALUE = "__create_new__";
   const [open, setOpen] = React.useState(false);
   const [categories, setCategories] = React.useState<
     Array<{ id: string; name: string }>
   >([]);
   const [saving, setSaving] = React.useState(false);
+  const [creatingNewCategory, setCreatingNewCategory] = React.useState(false);
+  const [newCategoryName, setNewCategoryName] = React.useState("");
+  const [newCategoryDescription, setNewCategoryDescription] =
+    React.useState("");
+  const [newCategorySlug, setNewCategorySlug] = React.useState("");
 
   const form = useForm<z.input<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -81,10 +87,35 @@ export default function AddSubCategoryDialog({
   });
 
   const nameWatch = form.watch("name");
+  const parentCategoryWatch = form.watch("parentCategoryId");
   React.useEffect(() => {
     const s = slugify(nameWatch || "");
     form.setValue("slug", s);
   }, [nameWatch, form]);
+
+  React.useEffect(() => {
+    if (parentCategoryWatch === NEW_CATEGORY_VALUE) {
+      setCreatingNewCategory(true);
+    } else {
+      setCreatingNewCategory(false);
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      setNewCategorySlug("");
+    }
+  }, [parentCategoryWatch]);
+
+  React.useEffect(() => {
+    setNewCategorySlug(slugify(newCategoryName));
+  }, [newCategoryName]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setCreatingNewCategory(false);
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      setNewCategorySlug("");
+    }
+  }, [open]);
 
   // load categories for parent select
   React.useEffect(() => {
@@ -118,10 +149,58 @@ export default function AddSubCategoryDialog({
     setSaving(true);
     try {
       const payload = values as SubCategoryCreatePayload;
+      let parentCategoryId = payload.parentCategoryId;
+
+      if (parentCategoryId === NEW_CATEGORY_VALUE) {
+        const trimmedName = newCategoryName.trim();
+        if (!trimmedName) {
+          throw new Error("Please provide a name for the new parent category.");
+        }
+
+        const createCategoryResponse = await fetch(
+          "/api/inventory/categories",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: trimmedName,
+              description: newCategoryDescription.trim() || undefined,
+              isActive: payload.isActive ?? true,
+              slug: newCategorySlug,
+            }),
+          }
+        );
+        const createCategoryBody =
+          (await createCategoryResponse.json().catch(() => ({}))) ?? {};
+        if (!createCategoryResponse.ok) {
+          const message =
+            (createCategoryBody as { error?: string }).error ??
+            "Failed to create parent category. Please try again.";
+          throw new Error(message);
+        }
+
+        const insertedId = (createCategoryBody as { insertedId?: string })
+          ?.insertedId;
+        if (!insertedId) {
+          throw new Error(
+            "Parent category was created but no identifier was returned."
+          );
+        }
+
+        parentCategoryId = insertedId;
+        setCategories((prev) => [
+          ...prev,
+          { id: insertedId, name: trimmedName },
+        ]);
+      }
+
       const res = await fetch("/api/inventory/categories/subcategories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          parentCategoryId,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -133,6 +212,10 @@ export default function AddSubCategoryDialog({
       toast.success("Sub category created");
       setOpen(false);
       form.reset();
+      setCreatingNewCategory(false);
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      setNewCategorySlug("");
       onCreated?.();
     } catch (e) {
       console.error(e);
@@ -208,7 +291,11 @@ export default function AddSubCategoryDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Parent Category</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => field.onChange(value)}
+                    disabled={saving}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a parent category" />
@@ -220,12 +307,44 @@ export default function AddSubCategoryDialog({
                           {c.name}
                         </SelectItem>
                       ))}
+                      <SelectItem value={NEW_CATEGORY_VALUE}>
+                        + Create new category
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {creatingNewCategory && (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-4">
+                <div className="space-y-2">
+                  <FormLabel>New Category Name</FormLabel>
+                  <Input
+                    placeholder="e.g. Accessories"
+                    value={newCategoryName}
+                    onChange={(e) => setNewCategoryName(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>New Category Description</FormLabel>
+                  <Textarea
+                    rows={2}
+                    placeholder="Optional description"
+                    value={newCategoryDescription}
+                    onChange={(e) => setNewCategoryDescription(e.target.value)}
+                    disabled={saving}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Slug preview:{" "}
+                  <span className="font-mono text-foreground">
+                    {newCategorySlug || "n-a"}
+                  </span>
+                </div>
+              </div>
+            )}
             <FormField
               control={form.control}
               name="isActive"
