@@ -157,11 +157,105 @@ export async function GET(request: NextRequest) {
     .limit(limit)
     .toArray();
 
-  const data = docs.map((d) => ({
-    ...d,
-    id: d._id?.toString(),
-    _id: undefined,
-  }));
+  const categoryIdStrings = new Set<string>();
+  const brandIdStrings = new Set<string>();
+
+  docs.forEach((doc) => {
+    const categoryValue = doc.category;
+    if (categoryValue) {
+      if (categoryValue instanceof ObjectId) {
+        categoryIdStrings.add(categoryValue.toString());
+      } else if (typeof categoryValue === "string") {
+        categoryIdStrings.add(categoryValue);
+      }
+    }
+
+    const brandValue = doc.brand;
+    if (brandValue) {
+      if (brandValue instanceof ObjectId) {
+        brandIdStrings.add(brandValue.toString());
+      } else if (typeof brandValue === "string") {
+        brandIdStrings.add(brandValue);
+      }
+    }
+  });
+
+  const categoryObjectIds = [...categoryIdStrings]
+    .filter((id) => ObjectId.isValid(id))
+    .map((id) => new ObjectId(id));
+  const brandObjectIds = [...brandIdStrings]
+    .filter((id) => ObjectId.isValid(id))
+    .map((id) => new ObjectId(id));
+
+  const categoryMap: Record<string, string> = {};
+  if (categoryObjectIds.length) {
+    const categoriesCollection = db.collection("product_categories");
+    const categories = await categoriesCollection
+      .find(
+        { _id: { $in: categoryObjectIds } },
+        { projection: { name: 1 } }
+      )
+      .toArray();
+    categories.forEach((cat) => {
+      if (cat?._id) {
+        categoryMap[cat._id.toString()] = cat.name;
+      }
+    });
+  }
+
+  const brandMap: Record<string, string> = {};
+  if (brandObjectIds.length) {
+    const brandsCollection = db.collection("brands");
+    const brands = await brandsCollection
+      .find(
+        { _id: { $in: brandObjectIds } },
+        { projection: { name: 1 } }
+      )
+      .toArray();
+    brands.forEach((brand) => {
+      if (brand?._id) {
+        brandMap[brand._id.toString()] = brand.name;
+      }
+    });
+  }
+
+  const data = docs.map((d) => {
+    const categoryId =
+      d.category instanceof ObjectId
+        ? d.category.toString()
+        : typeof d.category === "string" && ObjectId.isValid(d.category)
+          ? d.category
+          : undefined;
+    const brandId =
+      d.brand instanceof ObjectId
+        ? d.brand.toString()
+        : typeof d.brand === "string" && ObjectId.isValid(d.brand)
+          ? d.brand
+          : undefined;
+
+    const categoryName =
+      (categoryId && categoryMap[categoryId]
+        ? categoryMap[categoryId]
+        : undefined) ??
+      (typeof d.category === "string" && !ObjectId.isValid(d.category)
+        ? d.category
+        : undefined);
+    const brandName =
+      (brandId && brandMap[brandId] ? brandMap[brandId] : undefined) ??
+      (typeof d.brand === "string" && !ObjectId.isValid(d.brand)
+        ? d.brand
+        : undefined);
+
+    return {
+      ...d,
+      id: d._id?.toString(),
+      _id: undefined,
+      categoryId: categoryId ?? undefined,
+      brandId: brandId ?? undefined,
+      category: categoryName ?? null,
+      brand: brandName ?? null,
+    };
+  });
 
   return Response.json({
     data,
