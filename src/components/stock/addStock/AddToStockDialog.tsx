@@ -50,7 +50,6 @@ export default function AddToStockDialog({
   const [unit, setUnit] = React.useState<string>("");
   const [quantity, setQuantity] = React.useState<number>(1);
   const [batch, setBatch] = React.useState<string>("");
-  const [baseUnitQuantity, setBaseUnitQuantity] = React.useState<string>("");
   // unitPrice is derived from product price; no input in dialog
 
   React.useEffect(() => {
@@ -85,23 +84,38 @@ export default function AddToStockDialog({
 
   React.useEffect(() => {
     // When product changes, filter units and auto-select default
-    if (!product?.unit || allUnits.length === 0) {
-      setFilteredUnits(allUnits);
+    if (allUnits.length === 0) {
+      setFilteredUnits([]);
       setUnit("");
       setQuantity(1);
       setBatch("");
-      setBaseUnitQuantity("");
       return;
     }
 
-    // Find the product's default unit
-    const productUnit = allUnits.find((u) => u.id === product.unit);
-    if (!productUnit) {
+    // If no product unit, show all units but don't auto-select
+    if (!product?.unit) {
       setFilteredUnits(allUnits);
       setUnit("");
       setQuantity(1);
       setBatch("");
-      setBaseUnitQuantity("");
+      return;
+    }
+
+    // Find the product's default unit (could be ID or name)
+    let productUnit = allUnits.find((u) => u.id === product.unit);
+    
+    // If not found by ID, try by name (in case unit is stored as name)
+    if (!productUnit) {
+      productUnit = allUnits.find((u) => u.name === product.unit);
+    }
+    
+    if (!productUnit) {
+      // Product has a unit ID/name but it's not found in the list
+      // Show all units and don't auto-select
+      setFilteredUnits(allUnits);
+      setUnit("");
+      setQuantity(1);
+      setBatch("");
       return;
     }
 
@@ -123,40 +137,12 @@ export default function AddToStockDialog({
       );
     }
 
-    setFilteredUnits(related.length > 0 ? related : [productUnit]);
+    const unitsToShow = related.length > 0 ? related : [productUnit];
+    setFilteredUnits(unitsToShow);
     setUnit(productUnit.name); // Auto-select the product's unit
     setQuantity(1);
     setBatch("");
   }, [product?.unit, product?.id, allUnits]);
-
-  // Calculate base unit quantity whenever unit or quantity changes
-  React.useEffect(() => {
-    if (!unit || quantity <= 0 || filteredUnits.length === 0) {
-      setBaseUnitQuantity("");
-      return;
-    }
-
-    const selectedUnit = filteredUnits.find((u) => u.name === unit);
-    if (!selectedUnit) {
-      setBaseUnitQuantity("");
-      return;
-    }
-
-    if (selectedUnit.kind === "base") {
-      // Already in base units
-      setBaseUnitQuantity(`${quantity} ${selectedUnit.name}${selectedUnit.shortName ? ` (${selectedUnit.shortName})` : ""}`);
-    } else if (selectedUnit.kind === "pack" && selectedUnit.unitsPerPack) {
-      // Convert pack to base units
-      const baseQty = quantity * selectedUnit.unitsPerPack;
-      const baseUnit = filteredUnits.find(
-        (u) => u.id === selectedUnit.baseUnitId
-      );
-      const baseUnitName = baseUnit
-        ? `${baseUnit.name}${baseUnit.shortName ? ` (${baseUnit.shortName})` : ""}`
-        : "base units";
-      setBaseUnitQuantity(`${baseQty} ${baseUnitName}`);
-    }
-  }, [unit, quantity, filteredUnits]);
 
   const canConfirm = !!product && quantity > 0 && !!unit;
 
@@ -214,18 +200,6 @@ export default function AddToStockDialog({
                 placeholder="e.g., LOT-2025-04"
               />
             </div>
-
-            {/* Display base unit quantity for reference */}
-            {baseUnitQuantity && (
-              <div className="sm:col-span-2 rounded-md bg-muted/50 p-3">
-                <div className="text-xs font-medium text-muted-foreground mb-1">
-                  Base Unit Quantity
-                </div>
-                <div className="text-sm font-semibold">
-                  {baseUnitQuantity}
-                </div>
-              </div>
-            )}
           </div>
           <div className="mt-5 flex justify-end gap-2">
             <Dialog.Close asChild>
