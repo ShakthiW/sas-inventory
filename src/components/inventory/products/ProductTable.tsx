@@ -29,6 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import ProductDetailSheet from "./ProductDetailSheet";
 
 type ProductRow = {
   id: string;
@@ -77,6 +78,8 @@ export default function ProductTable() {
   const [rows, setRows] = React.useState<ProductRow[]>([]);
   const [meta, setMeta] = React.useState<ApiResponse["meta"] | null>(null);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
 
   const fetchData = React.useCallback(async () => {
     setLoading(true);
@@ -159,6 +162,13 @@ export default function ProductTable() {
         } else {
           await fetchData();
         }
+        setSelectedId((current) => {
+          if (current === id) {
+            setDetailOpen(false);
+            return null;
+          }
+          return current;
+        });
       } catch (error) {
         const message =
           error instanceof Error
@@ -274,6 +284,7 @@ export default function ProductTable() {
                   size="icon"
                   className="text-destructive hover:text-destructive focus-visible:ring-destructive"
                   disabled={isDeleting}
+                  onClick={(event) => event.stopPropagation()}
                 >
                   {isDeleting ? (
                     <Loader2Icon className="size-4 animate-spin" />
@@ -387,18 +398,32 @@ export default function ProductTable() {
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowId = row.original.id;
+                return (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer"
+                    data-state={
+                      rowId && rowId === selectedId ? "selected" : undefined
+                    }
+                    onClick={() => {
+                      if (!rowId) return;
+                      setSelectedId(rowId);
+                      setDetailOpen(true);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
@@ -436,6 +461,20 @@ export default function ProductTable() {
           </Button>
         </div>
       </div>
+
+      <ProductDetailSheet
+        productId={selectedId}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setSelectedId(null);
+          }
+        }}
+        onUpdated={() => {
+          fetchData();
+        }}
+      />
     </div>
   );
 }
