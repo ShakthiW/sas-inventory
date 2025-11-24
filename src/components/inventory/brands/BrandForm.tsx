@@ -2,15 +2,14 @@
 
 import React from "react";
 import { z } from "zod";
-import { Loader2Icon } from "lucide-react";
 import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2Icon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Form,
   FormControl,
@@ -19,97 +18,49 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
 
-export const categoryFormSchema = z.object({
-  name: z.string().min(1, "Category name is required").min(2),
-  slug: z.string().optional(),
+export const brandFormSchema = z.object({
+  name: z.string().min(1, "Brand name is required").min(2, "Brand name must be at least 2 characters"),
   description: z.string().optional(),
+  logoUrl: z.union([z.string().url("Invalid URL"), z.literal("")]).optional(),
   isActive: z.boolean(),
 });
 
-export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
+export type BrandFormValues = z.infer<typeof brandFormSchema>;
 
-export function slugifyCategoryName(input: string) {
-  return input
-    .toString()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-export function useCategoryForm(
-  defaultValues?: Partial<CategoryFormValues>
-): UseFormReturn<CategoryFormValues> {
-  return useForm<CategoryFormValues>({
-    resolver: zodResolver(categoryFormSchema),
+export function useBrandForm(
+  defaultValues?: Partial<BrandFormValues>
+): UseFormReturn<BrandFormValues> {
+  return useForm<BrandFormValues>({
+    resolver: zodResolver(brandFormSchema),
     defaultValues: {
       name: "",
-      slug: "",
       description: "",
+      logoUrl: "",
       isActive: true,
       ...defaultValues,
     },
   });
 }
 
-type CategoryFormProps = {
-  form: UseFormReturn<CategoryFormValues>;
-  onSubmit: (values: CategoryFormValues) => void | Promise<void>;
+type BrandFormProps = {
+  form: UseFormReturn<BrandFormValues>;
+  onSubmit: (values: BrandFormValues) => void | Promise<void>;
   saving?: boolean;
   submitLabel?: string;
   cancelLabel?: string;
   onCancel?: () => void;
-  autoSlug?: boolean;
-  allowSlugEditing?: boolean;
-  allowSlugRegenerate?: boolean;
-  children?: React.ReactNode;
 };
 
-export function CategoryForm({
+export function BrandForm({
   form,
   onSubmit,
   saving = false,
-  submitLabel = "Save Category",
+  submitLabel = "Save Brand",
   cancelLabel = "Cancel",
   onCancel,
-  autoSlug = true,
-  allowSlugEditing = false,
-  allowSlugRegenerate = false,
-  children,
-}: CategoryFormProps) {
-  const nameWatch = form.watch("name");
-  const slugWatch = form.watch("slug");
-  const activeId = React.useId();
-
-  React.useEffect(() => {
-    if (!autoSlug) return;
-    const nextSlug = slugifyCategoryName(nameWatch || "");
-    if (nextSlug && nextSlug !== slugWatch) {
-      form.setValue("slug", nextSlug, {
-        shouldDirty: true,
-        shouldValidate: false,
-      });
-    }
-    if (!nextSlug && slugWatch) {
-      form.setValue("slug", "", {
-        shouldDirty: true,
-        shouldValidate: false,
-      });
-    }
-  }, [autoSlug, form, nameWatch, slugWatch]);
-
-  const handleRegenerateSlug = React.useCallback(() => {
-    const nextSlug = slugifyCategoryName(form.getValues("name") ?? "");
-    form.setValue("slug", nextSlug, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-  }, [form]);
-
+}: BrandFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
@@ -120,13 +71,12 @@ export function CategoryForm({
             <FormItem>
               <FormLabel>Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Electronics" {...field} />
+                <Input placeholder="e.g. Acme" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
         <FormField
           control={form.control}
           name="description"
@@ -144,37 +94,19 @@ export function CategoryForm({
             </FormItem>
           )}
         />
-
         <FormField
           control={form.control}
-          name="slug"
+          name="logoUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Slug</FormLabel>
-              <div className="flex gap-2">
-                <FormControl>
-                  <Input
-                    placeholder="auto-generated"
-                    {...field}
-                    disabled={!allowSlugEditing}
-                  />
-                </FormControl>
-                {allowSlugRegenerate && !autoSlug && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleRegenerateSlug}
-                    disabled={saving}
-                  >
-                    Generate
-                  </Button>
-                )}
-              </div>
+              <FormLabel>Logo URL (Optional)</FormLabel>
+              <FormControl>
+                <Input placeholder="https://…" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-
         <FormField
           control={form.control}
           name="isActive"
@@ -183,24 +115,22 @@ export function CategoryForm({
               <FormLabel>Status</FormLabel>
               <div className="flex items-center gap-2 pt-2">
                 <Checkbox
-                  id={activeId}
+                  id="brand-active"
                   checked={!!field.value}
-                  onCheckedChange={(value) => field.onChange(Boolean(value))}
+                  onCheckedChange={(v) => field.onChange(Boolean(v))}
                 />
                 <Label
-                  htmlFor={activeId}
+                  htmlFor="brand-active"
                   className="cursor-pointer select-none"
                 >
-                  Active category
+                  Active brand
                 </Label>
               </div>
               <FormMessage />
             </FormItem>
           )}
         />
-
-        {children}
-
+        
         <div className="flex justify-end gap-2">
           {onCancel && (
             <Button
@@ -227,5 +157,3 @@ export function CategoryForm({
     </Form>
   );
 }
-
-

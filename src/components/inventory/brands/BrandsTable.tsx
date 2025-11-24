@@ -31,6 +31,7 @@ import {
 import AddBrandsDialog from "./AddBrandsDialog";
 import Image from "next/image";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
+import BrandDetailSheet from "./BrandDetailSheet";
 
 type BrandRow = BrandListItem;
 
@@ -55,6 +56,8 @@ export default function BrandsTable() {
   const [loading, setLoading] = React.useState(false);
   const [allRows, setAllRows] = React.useState<BrandRow[]>([]);
   const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -112,6 +115,13 @@ export default function BrandsTable() {
             return currentPage;
           });
           return next;
+        });
+        setSelectedId((current) => {
+          if (current === id) {
+            setDetailOpen(false);
+            return null;
+          }
+          return current;
         });
       } catch (error) {
         const message =
@@ -193,6 +203,7 @@ export default function BrandsTable() {
                   size="icon"
                   className="text-destructive hover:text-destructive focus-visible:ring-destructive"
                   disabled={isDeleting}
+                  onClick={(event) => event.stopPropagation()}
                 >
                   {isDeleting ? (
                     <Loader2Icon className="size-4 animate-spin" />
@@ -332,18 +343,32 @@ export default function BrandsTable() {
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowId = row.original.id;
+                return (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer"
+                    data-state={
+                      rowId && rowId === selectedId ? "selected" : undefined
+                    }
+                    onClick={() => {
+                      if (!rowId) return;
+                      setSelectedId(rowId);
+                      setDetailOpen(true);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
@@ -381,6 +406,20 @@ export default function BrandsTable() {
           </Button>
         </div>
       </div>
+
+      <BrandDetailSheet
+        brandId={selectedId}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setSelectedId(null);
+          }
+        }}
+        onUpdated={() => {
+          fetchAll();
+        }}
+      />
     </div>
   );
 }

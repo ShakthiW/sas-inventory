@@ -25,7 +25,7 @@ export const supplierFormSchema = z.object({
   supplierType: z.enum(["individual", "company"]),
   name: z.string().min(1, "Supplier name is required").min(3),
   code: z.string().min(1, "Supplier code is required"),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
   phone: z.string().optional(),
   contactPersonName: z.string().optional(),
   contactPersonPhone: z.string().optional(),
