@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import AddCategoryDialog from "./AddCategoryDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
+import CategoryDetailSheet from "./CategoryDetailSheet";
 
 type CategoryRow = CategoryListItem;
 
@@ -72,6 +73,8 @@ export default function CategoryTable() {
   const [subCategories, setSubCategories] = React.useState<
     SubCategoryListItem[]
   >([]);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -174,6 +177,14 @@ export default function CategoryTable() {
               sub.parentCategoryId !== id && !removedSet.has(sub.id)
           )
         );
+
+        setSelectedId((current) => {
+          if (current === id) {
+            setDetailOpen(false);
+            return null;
+          }
+          return current;
+        });
       } catch (error) {
         const message =
           error instanceof Error
@@ -277,6 +288,7 @@ export default function CategoryTable() {
                   size="icon"
                   className="text-destructive hover:text-destructive focus-visible:ring-destructive"
                   disabled={isDeleting}
+                  onClick={(event) => event.stopPropagation()}
                 >
                   {isDeleting ? (
                     <Loader2Icon className="size-4 animate-spin" />
@@ -382,6 +394,7 @@ export default function CategoryTable() {
             onCreated={() => {
               setPage(1);
               fetchAll();
+              fetchSubCategories();
             }}
           />
         </div>
@@ -413,18 +426,30 @@ export default function CategoryTable() {
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowId = row.original.id;
+                return (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer"
+                    data-state={rowId && rowId === selectedId ? "selected" : undefined}
+                    onClick={() => {
+                      if (!rowId) return;
+                      setSelectedId(rowId);
+                      setDetailOpen(true);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
@@ -459,6 +484,21 @@ export default function CategoryTable() {
           </Button>
         </div>
       </div>
+
+      <CategoryDetailSheet
+        categoryId={selectedId}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setSelectedId(null);
+          }
+        }}
+        onUpdated={() => {
+          fetchAll();
+          fetchSubCategories();
+        }}
+      />
     </div>
   );
 }
