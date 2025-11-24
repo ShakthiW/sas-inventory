@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     const { items } = parsed.data;
     const db = await getDb();
     const products = db.collection("products");
+    const units = db.collection("units_of_measure");
 
     // Persist the batch for later QR rendering
     const batches = db.collection("stock_batches");
@@ -55,11 +56,38 @@ export async function POST(request: Request) {
     } as unknown as Record<string, unknown>);
     const batchId = batchInsert.insertedId.toString();
 
-    // Aggregate quantities per productId in case UI sends duplicates
+    // Fetch all units to perform conversions
+    const allUnits = await units.find({}).toArray();
+    const unitMap = new Map(
+      allUnits.map((u) => [
+        u.name as string,
+        {
+          id: u._id.toString(),
+          name: u.name as string,
+          kind: (u.kind as string) || "base",
+          baseUnitId: u.baseUnitId
+            ? (u.baseUnitId as ObjectId).toString()
+            : undefined,
+          unitsPerPack: (u.unitsPerPack as number) || undefined,
+        },
+      ])
+    );
+
+    // Aggregate quantities per productId, converting pack units to base units
     const quantityByProductId = new Map<string, number>();
     for (const it of items) {
+      let baseQuantity = it.quantity;
+
+      // Convert pack units to base units
+      if (it.unit) {
+        const unitInfo = unitMap.get(it.unit);
+        if (unitInfo && unitInfo.kind === "pack" && unitInfo.unitsPerPack) {
+          baseQuantity = it.quantity * unitInfo.unitsPerPack;
+        }
+      }
+
       const prev = quantityByProductId.get(it.productId) ?? 0;
-      quantityByProductId.set(it.productId, prev + it.quantity);
+      quantityByProductId.set(it.productId, prev + baseQuantity);
     }
 
     const operations = Array.from(quantityByProductId.entries()).map(
