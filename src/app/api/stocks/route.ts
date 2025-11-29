@@ -157,7 +157,12 @@ export async function GET(request: NextRequest) {
         id: rec._id.toString(),
         type: rec.type ?? "in",
         batchName: rec.batchName,
-        itemsCount: Array.isArray(rec.items) ? rec.items.length : 0,
+        itemsCount: Array.isArray(rec.items)
+          ? rec.items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
+          : 0,
+        productTypesCount: Array.isArray(rec.items)
+          ? new Set(rec.items.map((i: any) => i.productId)).size
+          : 0,
         createdAt: rec.createdAt ?? null,
       };
     });

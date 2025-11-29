@@ -10,6 +10,7 @@ type BatchListItem = {
   type: string;
   batchName?: string;
   itemsCount: number;
+  productTypesCount?: number;
   createdAt: string | null;
 };
 
@@ -89,6 +90,16 @@ export default function Page() {
                 <div>
                   <span className="font-medium">{b.itemsCount}</span> item
                   {b.itemsCount !== 1 ? "s" : ""}
+                  {b.productTypesCount !== undefined && (
+                    <>
+                      {" · "}
+                      <span className="font-medium">
+                        {b.productTypesCount}
+                      </span>{" "}
+                      product type
+                      {b.productTypesCount !== 1 ? "s" : ""}
+                    </>
+                  )}
                 </div>
                 <div className="text-xs">
                   {b.createdAt
