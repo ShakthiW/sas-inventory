@@ -16,7 +16,7 @@ const InputField = ({
 }: FormInputProps) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor={name} className="text-sm font-medium">
+      <Label htmlFor={name} className="text-sm font-medium text-gray-200">
         {label}
       </Label>
       <Input
@@ -26,7 +26,7 @@ const InputField = ({
         placeholder={placeholder}
         disabled={disabled}
         value={value}
-        className={cn("h-11", {
+        className={cn("h-11 bg-gray-900 border-gray-700 text-gray-100 placeholder:text-gray-500 focus-visible:ring-yellow-500", {
           "opacity-50 cursor-not-allowed": disabled,
         })}
         {...register(name, validation)}

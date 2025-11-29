@@ -27,17 +27,17 @@ const Layout = async ({ children }: { children: React.ReactNode }) => {
 
       <section className="w-full max-lg:border-t max-lg:border-gray-600 lg:w-[55%] lg:h-screen bg-gray-800 px-6 py-4 md:p-6 lg:py-12 lg:px-18 flex flex-col justify-start">
         <div className="z-10 relative lg:mt-4 lg:mb-16">
-          <blockquote className="text-sm md:text-xl lg:text-2xl font-medium text-gray-400 mb-1 md:mb-6 lg:mb-8">
+          <blockquote className="text-sm md:text-xl lg:text-2xl font-medium text-white mb-1 md:mb-6 lg:mb-8">
             Standord Inventory turned my watchlist into a winning list. The
             alerts are spot-on, and I feel more confident making moves in the
             market
           </blockquote>
           <div className="flex items-center justify-between">
             <div>
-              <cite className="text-xs md:text-lg font-bold text-gray-400 not-italic">
+              <cite className="text-xs md:text-lg font-bold text-gray-200 not-italic">
                 - Ethan R.
               </cite>
-              <p className="max-md:text-xs text-gray-500">Retail Investor</p>
+              <p className="max-md:text-xs text-gray-400">Retail Investor</p>
             </div>
             <div className="flex items-center gap-0.5">
               {[1, 2, 3, 4, 5].map((star) => (

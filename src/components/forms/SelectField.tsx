@@ -19,7 +19,7 @@ const SelectField = ({
 }: SelectFieldProps) => {
   return (
     <div className="space-y-2">
-      <Label htmlFor={name} className="text-sm font-medium">
+      <Label htmlFor={name} className="text-sm font-medium text-gray-200">
         {label}
       </Label>
       <Controller
@@ -30,15 +30,15 @@ const SelectField = ({
         }}
         render={({ field }) => (
           <Select value={field.value} onValueChange={field.onChange}>
-            <SelectTrigger className="h-11">
-              <SelectValue placeholder={placeholder} />
+            <SelectTrigger className="h-11 bg-gray-900 border-gray-700 text-gray-100 focus:ring-yellow-500">
+              <SelectValue placeholder={placeholder} className="placeholder:text-gray-500" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-gray-800 border-gray-700 text-gray-100">
               {options.map((option) => (
                 <SelectItem
                   key={option.value}
                   value={option.value}
-                  className=""
+                  className="focus:bg-gray-700 focus:text-gray-100 cursor-pointer"
                 >
                   {option.label}
                 </SelectItem>
