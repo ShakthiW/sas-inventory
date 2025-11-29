@@ -51,7 +51,7 @@ const SignIn = () => {
 
   return (
     <>
-      <h1 className="text-2xl font-bold mb-6 text-gray-200">Welcome back</h1>
+      <h1 className="text-2xl font-bold mb-6 text-white">Welcome back</h1>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         <InputField
           name="email"

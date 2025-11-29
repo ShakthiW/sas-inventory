@@ -119,6 +119,10 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  .yellow-btn {
+    @apply bg-yellow-500 text-black hover:bg-yellow-600 transition-colors font-medium;
+  }
 }
 
 @layer base {
