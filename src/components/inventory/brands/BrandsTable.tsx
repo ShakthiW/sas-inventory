@@ -1,14 +1,16 @@
 "use client";
 
 import React from "react";
-import type { BrandListItem } from "@/lib/types";
+import { Loader2Icon, Trash2Icon } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { BrandListItem } from "@/lib/types";
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +31,7 @@ import {
 import AddBrandsDialog from "./AddBrandsDialog";
 import Image from "next/image";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
+import BrandDetailSheet from "./BrandDetailSheet";
 
 type BrandRow = BrandListItem;
 
@@ -44,41 +47,6 @@ type ApiResponse = {
   }>;
 };
 
-const columns: ColumnDef<BrandRow>[] = [
-  { header: "Name", accessorKey: "name" },
-  {
-    header: "Logo",
-    accessorKey: "logoUrl",
-    cell: ({ row }) => {
-      const url = row.original.logoUrl;
-      return url ? (
-        <Image
-          src={url}
-          alt={row.original.name}
-          className="h-8 w-8 rounded object-cover"
-          width={32}
-          height={32}
-        />
-      ) : (
-        <div className="text-xs text-muted-foreground">—</div>
-      );
-    },
-  },
-  {
-    header: "Active",
-    accessorKey: "isActive",
-    cell: ({ row }) => <ActiveStatusBadge active={!!row.original.isActive} />,
-  },
-  {
-    header: "Added",
-    accessorKey: "createdAt",
-    cell: ({ row }) => {
-      const v = row.getValue<string>("createdAt");
-      return <div>{v ? new Date(v).toLocaleDateString() : "-"}</div>;
-    },
-  },
-];
-
 export default function BrandsTable() {
   const [q, setQ] = React.useState("");
   const [dir, setDir] = React.useState<"asc" | "desc">("asc");
@@ -87,6 +55,9 @@ export default function BrandsTable() {
   const [limit, setLimit] = React.useState(20);
   const [loading, setLoading] = React.useState(false);
   const [allRows, setAllRows] = React.useState<BrandRow[]>([]);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -116,6 +87,143 @@ export default function BrandsTable() {
   React.useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      try {
+        const res = await fetch(`/api/inventory/brands/${id}`, {
+          method: "DELETE",
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const message =
+            data?.error ?? "Failed to delete the brand. Please try again.";
+          throw new Error(message);
+        }
+
+        setAllRows((prev) => {
+          const next = prev.filter((row) => row.id !== id);
+          setPage((currentPage) => {
+            if (
+              currentPage > 1 &&
+              (currentPage - 1) * limit >= next.length
+            ) {
+              return Math.max(currentPage - 1, 1);
+            }
+            return currentPage;
+          });
+          return next;
+        });
+        setSelectedId((current) => {
+          if (current === id) {
+            setDetailOpen(false);
+            return null;
+          }
+          return current;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the brand. Please try again.";
+        console.error(message);
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        throw error instanceof Error ? error : new Error(message);
+      } finally {
+        setDeletingId((current) => (current === id ? null : current));
+      }
+    },
+    [limit]
+  );
+
+  const columns = React.useMemo<ColumnDef<BrandRow>[]>(
+    () => [
+      { header: "Name", accessorKey: "name" },
+      {
+        header: "Logo",
+        accessorKey: "logoUrl",
+        cell: ({ row }) => {
+          const url = row.original.logoUrl;
+          return url ? (
+            <Image
+              src={url}
+              alt={row.original.name}
+              className="h-8 w-8 rounded object-cover"
+              width={32}
+              height={32}
+            />
+          ) : (
+            <div className="text-xs text-muted-foreground">—</div>
+          );
+        },
+      },
+      {
+        header: "Active",
+        accessorKey: "isActive",
+        cell: ({ row }) => (
+          <ActiveStatusBadge active={!!row.original.isActive} />
+        ),
+      },
+      {
+        header: "Added",
+        accessorKey: "createdAt",
+        cell: ({ row }) => {
+          const v = row.getValue<string>("createdAt");
+          return <div>{v ? new Date(v).toLocaleDateString() : "-"}</div>;
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const brand = row.original;
+          const brandId = brand.id;
+          if (!brandId) {
+            return null;
+          }
+          const isDeleting = deletingId === brandId;
+          const description = brand.name
+            ? `Are you sure you want to delete ${brand.name}? This action cannot be undone.`
+            : "Are you sure you want to delete this brand? This action cannot be undone.";
+
+          return (
+            <ConfirmDialog
+              title="Delete brand?"
+              description={description}
+              confirmLabel="Delete"
+              loadingLabel="Deleting…"
+              icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive focus-visible:ring-destructive"
+                  disabled={isDeleting}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {isDeleting ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="size-4" />
+                  )}
+                  <span className="sr-only">Delete brand</span>
+                </Button>
+              }
+              onConfirm={() => handleDelete(brandId)}
+            />
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+        size: 56,
+      },
+    ],
+    [deletingId, handleDelete]
+  );
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -235,18 +343,32 @@ export default function BrandsTable() {
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowId = row.original.id;
+                return (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer"
+                    data-state={
+                      rowId && rowId === selectedId ? "selected" : undefined
+                    }
+                    onClick={() => {
+                      if (!rowId) return;
+                      setSelectedId(rowId);
+                      setDetailOpen(true);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
                 <TableCell
@@ -284,6 +406,20 @@ export default function BrandsTable() {
           </Button>
         </div>
       </div>
+
+      <BrandDetailSheet
+        brandId={selectedId}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setSelectedId(null);
+          }
+        }}
+        onUpdated={() => {
+          fetchAll();
+        }}
+      />
     </div>
   );
 }

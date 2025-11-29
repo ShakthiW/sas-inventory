@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     const batchId = batchInsert.insertedId.toString();
 
     // Aggregate quantities per productId
+    // NO CONVERSION - remove quantities in the product's unit as-is
     const quantityByProductId = new Map<string, number>();
     for (const it of items) {
       const prev = quantityByProductId.get(it.productId) ?? 0;

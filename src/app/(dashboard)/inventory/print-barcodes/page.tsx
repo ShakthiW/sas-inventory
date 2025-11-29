@@ -4,11 +4,14 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import DownloadOptionsDialog from "@/components/stock/DownloadOptionsDialog";
 
 type BatchListItem = {
   id: string;
   type: string;
+  batchName?: string;
   itemsCount: number;
+  productTypesCount?: number;
   createdAt: string | null;
 };
 
@@ -17,6 +20,7 @@ export default function Page() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [batches, setBatches] = React.useState<BatchListItem[]>([]);
+  const [downloadDialogBatch, setDownloadDialogBatch] = React.useState<BatchListItem | null>(null);
 
   const page = Math.max(parseInt(params.get("page") || "1", 10), 1);
   const limit = Math.max(parseInt(params.get("limit") || "20", 10), 1);
@@ -64,47 +68,90 @@ export default function Page() {
       {error ? <div className="text-sm text-red-600">{error}</div> : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {batches.map((b) => (
-          <Card key={b.id}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">
-                Batch {b.id.slice(0, 6)}...
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              <div>Type: {b.type}</div>
-              <div>Items: {b.itemsCount}</div>
-              <div>
-                Created:{" "}
-                {b.createdAt
-                  ? new Date(b.createdAt).toLocaleString()
-                  : "Unknown"}
-              </div>
-              {/* Actions */}
-              <div className="mt-3 flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
-                      b.id
-                    )}`;
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = `batch_${b.id}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    a.remove();
-                  }}
-                >
-                  Download TXT
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+        {batches.map((b) => {
+          const isStockIn = b.type === "in";
+          return (
+            <Card key={b.id}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base truncate">
+                  {b.batchName || `Batch #${b.id.slice(0, 8)}`}
+                </CardTitle>
+                <div className="text-xs text-muted-foreground">
+                  <span
+                    className={
+                      isStockIn
+                        ? "text-emerald-600 font-medium"
+                        : "text-orange-600 font-medium"
+                    }
+                  >
+                    {isStockIn ? "Stock In" : "Stock Out"}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground space-y-1">
+                <div>
+                  <span className="font-medium">{b.itemsCount}</span> item
+                  {b.itemsCount !== 1 ? "s" : ""}
+                  {b.productTypesCount !== undefined && (
+                    <>
+                      {" · "}
+                      <span className="font-medium">
+                        {b.productTypesCount}
+                      </span>{" "}
+                      product type
+                      {b.productTypesCount !== 1 ? "s" : ""}
+                    </>
+                  )}
+                </div>
+                <div className="text-xs">
+                  {b.createdAt
+                    ? new Date(b.createdAt).toLocaleString()
+                    : "Unknown"}
+                </div>
+                {/* Actions */}
+                <div className="mt-3 flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      window.location.href = `/stocks/qr-labels?batchId=${b.id}`;
+                    }}
+                  >
+                    View QR Codes
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDownloadDialogBatch(b);
+                    }}
+                  >
+                    Download
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      <DownloadOptionsDialog
+        open={!!downloadDialogBatch}
+        onOpenChange={(open) => !open && setDownloadDialogBatch(null)}
+        onConfirm={(size, itemsPerRow) => {
+          if (!downloadDialogBatch) return;
+          const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
+            downloadDialogBatch.id
+          )}&size=${size}&itemsPerRow=${itemsPerRow}`;
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `batch_${downloadDialogBatch.id}_${size}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }}
+      />
     </div>
   );
 }

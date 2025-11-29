@@ -1,15 +1,20 @@
 "use client";
 
 import React from "react";
-import type { CategoryListItem } from "@/lib/types";
+import { Loader2Icon, Trash2Icon } from "lucide-react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { CategorySortField } from "@/lib/types";
+import type {
+  CategoryListItem,
+  CategorySortField,
+  SubCategoryListItem,
+} from "@/lib/types";
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from "@tanstack/react-table";
 
+import ConfirmDialog from "@/components/ConfirmDialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +34,7 @@ import {
 } from "@/components/ui/select";
 import AddCategoryDialog from "./AddCategoryDialog";
 import ActiveStatusBadge from "@/components/ActiveStatusBadge";
+import CategoryDetailSheet from "./CategoryDetailSheet";
 
 type CategoryRow = CategoryListItem;
 
@@ -44,23 +50,16 @@ type ApiResponse = {
   }>;
 };
 
-const columns: ColumnDef<CategoryRow>[] = [
-  { header: "Name", accessorKey: "name" },
-  { header: "Slug", accessorKey: "slug" },
-  {
-    header: "Active",
-    accessorKey: "isActive",
-    cell: ({ row }) => <ActiveStatusBadge active={!!row.original.isActive} />,
-  },
-  {
-    header: "Added",
-    accessorKey: "createdAt",
-    cell: ({ row }) => {
-      const v = row.getValue<string>("createdAt");
-      return <div>{v ? new Date(v).toLocaleDateString() : "-"}</div>;
-    },
-  },
-];
+type SubCategoryResponse = {
+  data: Array<{
+    id?: string;
+    _id?: string;
+    name: string;
+    slug?: string;
+    description?: string;
+    parentCategoryId: string;
+  }>;
+};
 
 export default function CategoryTable() {
   const [q, setQ] = React.useState("");
@@ -70,6 +69,12 @@ export default function CategoryTable() {
   const [limit, setLimit] = React.useState(20);
   const [loading, setLoading] = React.useState(false);
   const [allRows, setAllRows] = React.useState<CategoryRow[]>([]);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
+  const [subCategories, setSubCategories] = React.useState<
+    SubCategoryListItem[]
+  >([]);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = React.useState(false);
 
   const fetchAll = React.useCallback(async () => {
     setLoading(true);
@@ -99,6 +104,211 @@ export default function CategoryTable() {
   React.useEffect(() => {
     fetchAll();
   }, [fetchAll]);
+
+  const fetchSubCategories = React.useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        sort: "name",
+        dir: "asc",
+        page: "1",
+        limit: "500",
+      });
+      const res = await fetch(
+        `/api/inventory/categories/subcategories?${params.toString()}`
+      );
+      const json: SubCategoryResponse = await res.json();
+      const mapped: SubCategoryListItem[] = (json.data || []).map((d) => ({
+        id: (d.id || d._id || "") as string,
+        name: d.name,
+        slug: d.slug,
+        description: d.description,
+        parentCategoryId: d.parentCategoryId,
+      }));
+      setSubCategories(mapped);
+    } catch {
+      setSubCategories([]);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchSubCategories();
+  }, [fetchSubCategories]);
+
+  const handleDelete = React.useCallback(
+    async (id: string) => {
+      setDeletingId(id);
+      try {
+        const res = await fetch(`/api/inventory/categories/${id}`, {
+          method: "DELETE",
+        });
+
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok) {
+          const message =
+            data?.error ?? "Failed to delete the category. Please try again.";
+          throw new Error(message);
+        }
+
+        const removedSubCategoryIds = Array.isArray(
+          data?.removedSubCategoryIds
+        )
+          ? (data.removedSubCategoryIds as string[])
+          : [];
+        const removedSet = new Set([id, ...removedSubCategoryIds]);
+
+        setAllRows((prev) => {
+          const next = prev.filter((row) => row.id !== id);
+          setPage((currentPage) => {
+            if (
+              currentPage > 1 &&
+              (currentPage - 1) * limit >= next.length
+            ) {
+              return Math.max(currentPage - 1, 1);
+            }
+            return currentPage;
+          });
+          return next;
+        });
+
+        setSubCategories((prev) =>
+          prev.filter(
+            (sub) =>
+              sub.parentCategoryId !== id && !removedSet.has(sub.id)
+          )
+        );
+
+        setSelectedId((current) => {
+          if (current === id) {
+            setDetailOpen(false);
+            return null;
+          }
+          return current;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to delete the category. Please try again.";
+        console.error(message);
+        if (typeof window !== "undefined") {
+          window.alert(message);
+        }
+        throw error instanceof Error ? error : new Error(message);
+      } finally {
+        setDeletingId((current) => (current === id ? null : current));
+      }
+    },
+    [limit]
+  );
+
+  const columns = React.useMemo<ColumnDef<CategoryRow>[]>(
+    () => [
+      { header: "Name", accessorKey: "name" },
+      { header: "Slug", accessorKey: "slug" },
+      {
+        header: "Active",
+        accessorKey: "isActive",
+        cell: ({ row }) => (
+          <ActiveStatusBadge active={!!row.original.isActive} />
+        ),
+      },
+      {
+        header: "Added",
+        accessorKey: "createdAt",
+        cell: ({ row }) => {
+          const v = row.getValue<string>("createdAt");
+          return <div>{v ? new Date(v).toLocaleDateString() : "-"}</div>;
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => {
+          const category = row.original;
+          const categoryId = category.id;
+          if (!categoryId) {
+            return null;
+          }
+          const isDeleting = deletingId === categoryId;
+          const dependentSubCategories =
+            subCategories.length > 0
+              ? subCategories.filter(
+                  (sub) => sub.parentCategoryId === categoryId
+                )
+              : [];
+          const dependentCount = dependentSubCategories.length;
+          let description: string;
+          if (category.name) {
+            description =
+              dependentCount > 0
+                ? `Deleting ${category.name} will also delete ${dependentCount} subcategor${dependentCount === 1 ? "y" : "ies"}. This action cannot be undone.`
+                : `Are you sure you want to delete ${category.name}? This action cannot be undone.`;
+          } else {
+            description =
+              dependentCount > 0
+                ? `Deleting this category will also delete ${dependentCount} subcategor${dependentCount === 1 ? "y" : "ies"}. This action cannot be undone.`
+                : "Are you sure you want to delete this category? This action cannot be undone.";
+          }
+
+          return (
+            <ConfirmDialog
+              title="Delete category?"
+              description={description}
+              confirmLabel="Delete"
+              loadingLabel="Deleting…"
+              icon={<Trash2Icon className="size-5" aria-hidden="true" />}
+              body={
+                dependentCount > 0 ? (
+                  <div className="space-y-3">
+                    <div className="font-medium text-foreground">
+                      Subcategories to be deleted
+                    </div>
+                    <ul className="space-y-2 text-muted-foreground">
+                      {dependentSubCategories.map((sub) => (
+                        <li
+                          key={sub.id}
+                          className="flex flex-col gap-0.5 rounded-md border border-border/60 bg-muted/30 px-3 py-2"
+                        >
+                          <div className="font-medium text-foreground">
+                            {sub.name}
+                          </div>
+                          <div className="text-xs uppercase tracking-wide text-muted-foreground/80">
+                            {sub.slug ? `Slug: ${sub.slug}` : "No slug defined"}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : undefined
+              }
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:text-destructive focus-visible:ring-destructive"
+                  disabled={isDeleting}
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {isDeleting ? (
+                    <Loader2Icon className="size-4 animate-spin" />
+                  ) : (
+                    <Trash2Icon className="size-4" />
+                  )}
+                  <span className="sr-only">Delete category</span>
+                </Button>
+              }
+              onConfirm={() => handleDelete(categoryId)}
+            />
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
+        size: 56,
+      },
+    ],
+    [deletingId, handleDelete, subCategories]
+  );
 
   const filtered = React.useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -184,6 +394,7 @@ export default function CategoryTable() {
             onCreated={() => {
               setPage(1);
               fetchAll();
+              fetchSubCategories();
             }}
           />
         </div>
@@ -210,32 +421,38 @@ export default function CategoryTable() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const rowId = row.original.id;
+                return (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer"
+                    data-state={rowId && rowId === selectedId ? "selected" : undefined}
+                    onClick={() => {
+                      if (!rowId) return;
+                      setSelectedId(rowId);
+                      setDetailOpen(true);
+                    }}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
@@ -267,6 +484,21 @@ export default function CategoryTable() {
           </Button>
         </div>
       </div>
+
+      <CategoryDetailSheet
+        categoryId={selectedId}
+        open={detailOpen}
+        onOpenChange={(open) => {
+          setDetailOpen(open);
+          if (!open) {
+            setSelectedId(null);
+          }
+        }}
+        onUpdated={() => {
+          fetchAll();
+          fetchSubCategories();
+        }}
+      />
     </div>
   );
 }

@@ -20,6 +20,7 @@ const stockLineItemSchema = z.object({
 
 const stockPayloadSchema = z.object({
   items: z.array(stockLineItemSchema).min(1),
+  batchName: z.string().min(1, "Batch name is required"),
 });
 
 export async function POST(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { items } = parsed.data;
+    const { items, batchName } = parsed.data;
     const db = await getDb();
     const products = db.collection("products");
 
@@ -45,17 +46,20 @@ export async function POST(request: Request) {
     await Promise.allSettled([
       batches.createIndex({ createdAt: 1 }),
       batches.createIndex({ updatedAt: 1 }),
+      batches.createIndex({ batchName: 1 }),
     ]);
     const now = new Date();
     const batchInsert = await batches.insertOne({
       type: "in",
+      batchName,
       items,
       createdAt: now,
       updatedAt: now,
     } as unknown as Record<string, unknown>);
     const batchId = batchInsert.insertedId.toString();
 
-    // Aggregate quantities per productId in case UI sends duplicates
+    // Aggregate quantities per productId
+    // NO CONVERSION - store quantities in the product's unit as-is
     const quantityByProductId = new Map<string, number>();
     for (const it of items) {
       const prev = quantityByProductId.get(it.productId) ?? 0;
@@ -111,6 +115,7 @@ export async function GET(request: NextRequest) {
         _id: ObjectId;
         items?: unknown;
         type?: string;
+        batchName?: string;
         createdAt?: Date;
       };
       const items = Array.isArray(rec.items)
@@ -119,6 +124,7 @@ export async function GET(request: NextRequest) {
       return Response.json({
         batchId: rec._id.toString(),
         type: rec.type ?? "in",
+        batchName: rec.batchName,
         createdAt: rec.createdAt ?? null,
         items,
       });
@@ -144,12 +150,19 @@ export async function GET(request: NextRequest) {
         _id: ObjectId;
         items?: unknown[];
         type?: string;
+        batchName?: string;
         createdAt?: Date;
       };
       return {
         id: rec._id.toString(),
         type: rec.type ?? "in",
-        itemsCount: Array.isArray(rec.items) ? rec.items.length : 0,
+        batchName: rec.batchName,
+        itemsCount: Array.isArray(rec.items)
+          ? (rec.items as StockLineItem[]).reduce((sum: number, item: StockLineItem) => sum + (item.quantity || 0), 0)
+          : 0,
+        productTypesCount: Array.isArray(rec.items)
+          ? new Set((rec.items as StockLineItem[]).map((i) => i.productId)).size
+          : 0,
         createdAt: rec.createdAt ?? null,
       };
     });

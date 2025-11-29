@@ -1,9 +1,10 @@
-import { type LabelData, type TscLabelOptions } from "./templates/types";
-import { generate25x25 } from "./templates/size_25x25";
-import { generate100x50 } from "./templates/size_100x50";
-import { generate100x150 } from "./templates/size_100x150";
-
-export type { LabelData, TscLabelOptions };
+import {
+  type LabelData,
+  type TscLabelOptions,
+  appendWithBlank,
+  finalizeTemplateLines,
+  sanitizeTsplValue,
+} from "./types";
 
 const defaultQrPositions = [
   { x: 819, y: 175 },
@@ -47,19 +48,8 @@ const defaultOptions: Required<TscLabelOptions> = {
   nameTextRotation: 180,
   nameTextXMul: 10,
   nameTextYMul: 10,
+  itemsPerRow: 4,
 };
-
-function appendWithBlank(lines: string[], value: string) {
-  lines.push(value);
-  lines.push("");
-}
-
-function finalizeTemplateLines(lines: string[]): string {
-  if (lines.length > 0 && lines[lines.length - 1] === "") {
-    lines.pop();
-  }
-  return lines.join("\n");
-}
 
 function headerBlock(opts: Required<TscLabelOptions>): string {
   const lines: string[] = [];
@@ -81,64 +71,6 @@ function headerBlock(opts: Required<TscLabelOptions>): string {
   appendWithBlank(lines, `SET PARTIAL_CUTTER OFF`);
   appendWithBlank(lines, `<xpml></page></xpml>`);
   return finalizeTemplateLines(lines);
-}
-
-function pageBlock(values: string[], opts: Required<TscLabelOptions>): string {
-  const lines: string[] = [];
-  appendWithBlank(
-    lines,
-    `<xpml><page quantity='1' pitch='${opts.heightMm.toFixed(
-      1
-    )} mm'></xpml>SET TEAR ${opts.tearOn ? "ON" : "OFF"}`
-  );
-  appendWithBlank(lines, "CLS");
-
-  for (let i = 0; i < values.length; i++) {
-    const pos = opts.qrPositions[i];
-    if (!pos) break;
-    const rawValue = values[i];
-    const qrv = sanitizeTsplValue(rawValue);
-    appendWithBlank(
-      lines,
-      `QRCODE ${pos.x},${pos.y},${opts.qrModel},${opts.qrSize},A,${opts.qrRotation},${opts.qrMask},${opts.qrErrorLevel},"${qrv}"`
-    );
-    if (i === 0) {
-      appendWithBlank(lines, `CODEPAGE ${opts.codepage}`);
-    }
-    const textPos = opts.textPositions[i];
-    if (!textPos) continue;
-    appendWithBlank(
-      lines,
-      `TEXT ${textPos.x},${textPos.y},"${opts.textFont}",${opts.textRotation},${opts.textXMul},${opts.textYMul},"${qrv}"`
-    );
-  }
-
-  appendWithBlank(lines, "PRINT 1,1");
-  appendWithBlank(lines, "<xpml></page></xpml>");
-  return finalizeTemplateLines(lines);
-}
-
-export function buildTscTxtFromValues(
-  values: string[],
-  options?: TscLabelOptions
-): string {
-  const opts = {
-    ...defaultOptions,
-    ...(options || {}),
-  } as Required<TscLabelOptions>;
-  const head = headerBlock(opts);
-  const pages: string[] = [];
-  for (let i = 0; i < values.length; i += 4) {
-    const slice = values.slice(i, i + 4);
-    pages.push(pageBlock(slice, opts));
-  }
-  const endTag = `<xpml><end/></xpml>`;
-  return [head, ...pages, endTag].join("");
-}
-
-function sanitizeTsplValue(value: string): string {
-  // Remove newlines and replace double quotes to avoid TSPL parsing issues
-  return value.replace(/[\r\n]+/g, " ").replace(/"/g, "'");
 }
 
 function pageBlockForLabels(
@@ -188,18 +120,24 @@ function pageBlockForLabels(
   return finalizeTemplateLines(lines);
 }
 
-export function buildTscTxtFromLabelData(
+export function generate25x25(
   labels: LabelData[],
-  options?: TscLabelOptions,
-  size: LabelSize = "25x25"
+  options?: TscLabelOptions
 ): string {
-  switch (size) {
-    case "100x50":
-      return generate100x50(labels, options);
-    case "100x150":
-      return generate100x150(labels, options);
-    case "25x25":
-    default:
-      return generate25x25(labels, options);
+  const opts = {
+    ...defaultOptions,
+    ...(options || {}),
+  } as Required<TscLabelOptions>;
+  
+  // Default to 4 if not specified
+  const itemsPerRow = options?.itemsPerRow || 4;
+  
+  const head = headerBlock(opts);
+  const pages: string[] = [];
+  for (let i = 0; i < labels.length; i += itemsPerRow) {
+    const slice = labels.slice(i, i + itemsPerRow);
+    pages.push(pageBlockForLabels(slice, opts));
   }
+  const endTag = `<xpml><end/></xpml>`;
+  return [head, ...pages, endTag].join("");
 }
