@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import DownloadOptionsDialog from "@/components/stock/DownloadOptionsDialog";
 
 type BatchListItem = {
   id: string;
@@ -19,6 +20,7 @@ export default function Page() {
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [batches, setBatches] = React.useState<BatchListItem[]>([]);
+  const [downloadDialogBatch, setDownloadDialogBatch] = React.useState<BatchListItem | null>(null);
 
   const page = Math.max(parseInt(params.get("page") || "1", 10), 1);
   const limit = Math.max(parseInt(params.get("limit") || "20", 10), 1);
@@ -122,15 +124,7 @@ export default function Page() {
                     variant="outline"
                     onClick={(e) => {
                       e.stopPropagation();
-                      const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
-                        b.id
-                      )}`;
-                      const a = document.createElement("a");
-                      a.href = url;
-                      a.download = `batch_${b.id}.txt`;
-                      document.body.appendChild(a);
-                      a.click();
-                      a.remove();
+                      setDownloadDialogBatch(b);
                     }}
                   >
                     Download
@@ -141,6 +135,23 @@ export default function Page() {
           );
         })}
       </div>
+
+      <DownloadOptionsDialog
+        open={!!downloadDialogBatch}
+        onOpenChange={(open) => !open && setDownloadDialogBatch(null)}
+        onConfirm={(size, itemsPerRow) => {
+          if (!downloadDialogBatch) return;
+          const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
+            downloadDialogBatch.id
+          )}&size=${size}&itemsPerRow=${itemsPerRow}`;
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `batch_${downloadDialogBatch.id}_${size}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }}
+      />
     </div>
   );
 }

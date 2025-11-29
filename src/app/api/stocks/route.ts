@@ -158,10 +158,10 @@ export async function GET(request: NextRequest) {
         type: rec.type ?? "in",
         batchName: rec.batchName,
         itemsCount: Array.isArray(rec.items)
-          ? rec.items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
+          ? (rec.items as StockLineItem[]).reduce((sum: number, item: StockLineItem) => sum + (item.quantity || 0), 0)
           : 0,
         productTypesCount: Array.isArray(rec.items)
-          ? new Set(rec.items.map((i: any) => i.productId)).size
+          ? new Set((rec.items as StockLineItem[]).map((i) => i.productId)).size
           : 0,
         createdAt: rec.createdAt ?? null,
       };

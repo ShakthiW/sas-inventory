@@ -29,7 +29,7 @@ export default function BatchNameDialog({
       const timeStr = now.toTimeString().split(" ")[0].replace(/:/g, "");
       setBatchName(`BATCH-${dateStr}-${timeStr}`);
     }
-  }, [open]);
+  }, [open, batchName]);
 
   const handleConfirm = () => {
     const name = batchName.trim();
