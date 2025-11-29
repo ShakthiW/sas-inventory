@@ -8,6 +8,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 type BatchItem = {
   id: string;
   type: string;
+  batchName?: string;
   itemsCount: number;
   createdAt: string | Date | null;
 };
@@ -57,11 +58,13 @@ export default function RecentBatchesCard() {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-medium text-foreground">
-                      {isIn ? "Stock In" : "Stock Out"}
+                    <div className="font-medium text-foreground truncate">
+                      {b.batchName || `Batch #${b.id.slice(-5)}`}
                     </div>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <span className="text-blue-600">#{b.id.slice(-5)}</span>
+                      <span className="text-blue-600">
+                        {isIn ? "Stock In" : "Stock Out"}
+                      </span>
                       <span>•</span>
                       <span>{date ? date.toLocaleDateString() : "—"}</span>
                     </div>

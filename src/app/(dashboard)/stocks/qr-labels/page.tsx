@@ -19,6 +19,7 @@ export default function Page() {
   const payloadParam = params.get("payload");
   const batchId = params.get("batchId");
   const [items, setItems] = React.useState<StockLineItem[]>([]);
+  const [batchName, setBatchName] = React.useState<string>("");
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -31,8 +32,14 @@ export default function Page() {
             `/api/stocks?batchId=${encodeURIComponent(batchId)}`
           );
           if (res.ok) {
-            const data = (await res.json()) as { items?: StockLineItem[] };
-            if (!ignore && Array.isArray(data.items)) setItems(data.items);
+            const data = (await res.json()) as {
+              items?: StockLineItem[];
+              batchName?: string;
+            };
+            if (!ignore) {
+              if (Array.isArray(data.items)) setItems(data.items);
+              if (data.batchName) setBatchName(data.batchName);
+            }
           }
         } finally {
           setLoading(false);
@@ -71,6 +78,17 @@ export default function Page() {
 
   return (
     <div className="p-4">
+      {/* Batch name header */}
+      {batchName && (
+        <div className="mb-4 rounded-lg border bg-muted/50 p-4">
+          <div className="text-sm font-medium text-muted-foreground">Batch</div>
+          <div className="text-xl font-semibold">{batchName}</div>
+          <div className="text-sm text-muted-foreground mt-1">
+            {labels.length} QR code{labels.length !== 1 ? "s" : ""} to print
+          </div>
+        </div>
+      )}
+
       {/* Print styles for 2×1 inch roll labels */}
       <style
         dangerouslySetInnerHTML={{

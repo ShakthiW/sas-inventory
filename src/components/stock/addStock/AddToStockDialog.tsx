@@ -49,7 +49,6 @@ export default function AddToStockDialog({
   const [filteredUnits, setFilteredUnits] = React.useState<UnitDetail[]>([]);
   const [unit, setUnit] = React.useState<string>("");
   const [quantity, setQuantity] = React.useState<number>(1);
-  const [batch, setBatch] = React.useState<string>("");
   // unitPrice is derived from product price; no input in dialog
 
   React.useEffect(() => {
@@ -88,7 +87,6 @@ export default function AddToStockDialog({
       setFilteredUnits([]);
       setUnit("");
       setQuantity(1);
-      setBatch("");
       return;
     }
 
@@ -97,7 +95,6 @@ export default function AddToStockDialog({
       setFilteredUnits(allUnits);
       setUnit("");
       setQuantity(1);
-      setBatch("");
       return;
     }
 
@@ -115,7 +112,6 @@ export default function AddToStockDialog({
       setFilteredUnits(allUnits);
       setUnit("");
       setQuantity(1);
-      setBatch("");
       return;
     }
 
@@ -141,7 +137,6 @@ export default function AddToStockDialog({
     setFilteredUnits(unitsToShow);
     setUnit(productUnit.name); // Auto-select the product's unit
     setQuantity(1);
-    setBatch("");
   }, [product?.unit, product?.id, allUnits]);
 
   const canConfirm = !!product && quantity > 0 && !!unit;
@@ -187,19 +182,6 @@ export default function AddToStockDialog({
                 }
               />
             </div>
-            <div className="sm:col-span-2">
-              <div className="mb-1 text-xs text-muted-foreground">
-                Batch (optional)
-              </div>
-              <Input
-                type="text"
-                value={batch}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setBatch(e.target.value)
-                }
-                placeholder="e.g., LOT-2025-04"
-              />
-            </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
             <Dialog.Close asChild>
@@ -216,7 +198,6 @@ export default function AddToStockDialog({
                   unit: unit || product.unit || undefined,
                   quantity,
                   unitPrice: product?.price,
-                  batch: batch || undefined,
                   category: product.category,
                   subCategory: product.subCategory,
                   brand: product.brand,

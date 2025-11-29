@@ -20,6 +20,7 @@ const stockLineItemSchema = z.object({
 
 const stockPayloadSchema = z.object({
   items: z.array(stockLineItemSchema).min(1),
+  batchName: z.string().min(1, "Batch name is required"),
 });
 
 export async function POST(request: Request) {
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { items } = parsed.data;
+    const { items, batchName } = parsed.data;
     const db = await getDb();
     const products = db.collection("products");
 
@@ -45,10 +46,12 @@ export async function POST(request: Request) {
     await Promise.allSettled([
       batches.createIndex({ createdAt: 1 }),
       batches.createIndex({ updatedAt: 1 }),
+      batches.createIndex({ batchName: 1 }),
     ]);
     const now = new Date();
     const batchInsert = await batches.insertOne({
       type: "in",
+      batchName,
       items,
       createdAt: now,
       updatedAt: now,
@@ -112,6 +115,7 @@ export async function GET(request: NextRequest) {
         _id: ObjectId;
         items?: unknown;
         type?: string;
+        batchName?: string;
         createdAt?: Date;
       };
       const items = Array.isArray(rec.items)
@@ -120,6 +124,7 @@ export async function GET(request: NextRequest) {
       return Response.json({
         batchId: rec._id.toString(),
         type: rec.type ?? "in",
+        batchName: rec.batchName,
         createdAt: rec.createdAt ?? null,
         items,
       });
@@ -145,11 +150,13 @@ export async function GET(request: NextRequest) {
         _id: ObjectId;
         items?: unknown[];
         type?: string;
+        batchName?: string;
         createdAt?: Date;
       };
       return {
         id: rec._id.toString(),
         type: rec.type ?? "in",
+        batchName: rec.batchName,
         itemsCount: Array.isArray(rec.items) ? rec.items.length : 0,
         createdAt: rec.createdAt ?? null,
       };
