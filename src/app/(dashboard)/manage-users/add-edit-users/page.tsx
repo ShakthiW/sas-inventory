@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useSearchParams } from "next/navigation";
 import InputField from "@/components/forms/InputField";
@@ -36,39 +36,42 @@ export default function Page() {
     defaultValues: { name: "", email: "", password: "", role: "" },
   });
 
+  const fetchUser = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/users/${id}`);
+        const json = await res.json();
+        if (json.success) {
+          const user = json.data;
+          setValue("name", user.name);
+          setValue("email", user.email);
+          setValue("role", user.role);
+          // Password is not populated for security
+        } else {
+          toast.error("Failed to fetch user details");
+        }
+      } catch (error) {
+        console.error(error);
+        toast.error("Error fetching user");
+      }
+    },
+    [setValue]
+  );
+
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && userId) {
       fetchUser(userId);
     }
-  }, [isEditMode, userId]);
-
-  async function fetchUser(id: string) {
-    try {
-      const res = await fetch(`/api/users/${id}`);
-      const json = await res.json();
-      if (json.success) {
-        const user = json.data;
-        setValue("name", user.name);
-        setValue("email", user.email);
-        setValue("role", user.role);
-        // Password is not populated for security
-      } else {
-        toast.error("Failed to fetch user details");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error("Error fetching user");
-    }
-  }
+  }, [isEditMode, userId, fetchUser]);
 
   async function onSubmit(values: AddEditUserFormValues) {
     try {
       const url = isEditMode ? `/api/users/${userId}` : "/api/users";
       const method = isEditMode ? "PUT" : "POST";
 
-      const payload = { ...values };
+      const payload: Record<string, unknown> = { ...values };
       if (isEditMode && !payload.password) {
-        delete (payload as any).password;
+        delete payload.password;
       }
 
       const res = await fetch(url, {

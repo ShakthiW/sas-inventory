@@ -61,7 +61,10 @@ export async function PUT(
     }
 
     const db = await getDb();
-    const updateData: any = { ...parsed.data, updatedAt: new Date() };
+    const updateData: z.infer<typeof updateUserSchema> & { updatedAt: Date } = {
+      ...parsed.data,
+      updatedAt: new Date(),
+    };
 
     // If password is provided, we would need to hash it.
     // For now, let's assume password update is handled separately or we need to import bcrypt.

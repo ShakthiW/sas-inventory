@@ -61,7 +61,9 @@ export const signOut = async () => {
   }
 };
 
-export const createUser = async (data: SignUpFormData & { role: "admin" | "staff" }) => {
+export const createUser = async (
+  data: SignUpFormData & { role: "admin" | "staff" }
+) => {
   try {
     const session = await auth.api.getSession({ headers: await headers() });
     const currentUser = session?.user;
@@ -70,7 +72,7 @@ export const createUser = async (data: SignUpFormData & { role: "admin" | "staff
       return { success: false, error: "Unauthorized" };
     }
 
-    const currentUserRole = (currentUser as any).role || "staff";
+    const currentUserRole = (currentUser as { role?: string }).role || "staff";
 
     if (currentUserRole === "super-admin") {
       // Super admin can create admin or staff
@@ -87,7 +89,6 @@ export const createUser = async (data: SignUpFormData & { role: "admin" | "staff
         email: data.email,
         password: data.password,
         name: data.fullName,
-        role: data.role,
       },
     });
 
