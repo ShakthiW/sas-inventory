@@ -53,10 +53,23 @@ export default function Page() {
   const inputRef = React.useRef<HTMLInputElement>(null);
 
   const addProductToCart = React.useCallback(
-    (p: { id: string; name: string; sku?: string; price?: number }) => {
+    (p: {
+      id: string;
+      name: string;
+      sku?: string;
+      price?: number;
+      unit?: string;
+    }) => {
       startTransition(() => {
         setCart((prev) => {
-          const idx = prev.findIndex((it) => it.productId === p.id);
+          // When unit is specified (from QR code), match by both productId and unit
+          // Otherwise, match by productId only
+          const idx = p.unit
+            ? prev.findIndex(
+                (it) => it.productId === p.id && it.unit === p.unit
+              )
+            : prev.findIndex((it) => it.productId === p.id && !it.unit);
+
           if (idx >= 0) {
             const copy = [...prev];
             copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
@@ -68,7 +81,7 @@ export default function Page() {
               productId: p.id,
               name: p.name,
               sku: p.sku,
-              unit: undefined,
+              unit: p.unit,
               quantity: 1,
               unitPrice: p.price,
             },
@@ -158,6 +171,7 @@ export default function Page() {
       name: string;
       sku?: string;
       price?: number;
+      unit?: string;
     } | null = null;
 
     if (parsed) {
@@ -170,8 +184,8 @@ export default function Page() {
         inputRef.current?.focus();
         return;
       }
-      chosen = await resolveProductById(parsed.productId);
-      if (!chosen) {
+      const product = await resolveProductById(parsed.productId);
+      if (!product) {
         toast.error("Product not found", {
           description: "The scanned product id does not exist.",
         });
@@ -179,6 +193,8 @@ export default function Page() {
         inputRef.current?.focus();
         return;
       }
+      // Include the unit from the QR code
+      chosen = { ...product, unit: parsed.unit };
     } else {
       // Non-SASINV: treat as manual QR/barcode or SKU search as before
       chosen = await resolveProductByCode(scanned);
@@ -193,7 +209,10 @@ export default function Page() {
     }
 
     addProductToCart(chosen);
-    toast.success("Added to out stock", { description: chosen.name });
+    const unitInfo = chosen.unit ? ` (${chosen.unit})` : "";
+    toast.success("Added to out stock", {
+      description: `${chosen.name}${unitInfo}`,
+    });
     setQr("");
     // Keep focus for next scan
     inputRef.current?.focus();
@@ -325,6 +344,7 @@ export default function Page() {
                 <TableRow className="bg-muted/40">
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
+                  <TableHead>Unit</TableHead>
                   <TableHead className="w-[160px]">Quantity</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -332,15 +352,24 @@ export default function Page() {
               <TableBody>
                 {cart.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="h-20 text-center">
+                    <TableCell colSpan={5} className="h-20 text-center">
                       No items yet. Scan or search to add.
                     </TableCell>
                   </TableRow>
                 ) : (
                   cart.map((it, idx) => (
-                    <TableRow key={`${it.productId}-${idx}`}>
+                    <TableRow key={`${it.productId}-${it.unit || "default"}-${idx}`}>
                       <TableCell className="font-medium">{it.name}</TableCell>
                       <TableCell>{it.sku || "-"}</TableCell>
+                      <TableCell>
+                        {it.unit ? (
+                          <span className="text-xs font-medium px-2 py-1 rounded-md bg-muted">
+                            {it.unit}
+                          </span>
+                        ) : (
+                          "-"
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button

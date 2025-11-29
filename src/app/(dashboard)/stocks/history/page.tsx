@@ -22,6 +22,7 @@ import {
 type BatchListItem = {
   id: string;
   type: "in" | "out";
+  batchName?: string;
   itemsCount: number;
   createdAt: string | null;
 };
@@ -29,6 +30,7 @@ type BatchListItem = {
 type BatchDetail = {
   batchId: string;
   type: "in" | "out";
+  batchName?: string;
   createdAt: string | null;
   items: Array<{
     productId: string;
@@ -37,7 +39,6 @@ type BatchDetail = {
     unit?: string;
     quantity: number;
     unitPrice?: number;
-    batch?: string;
   }>;
 };
 
@@ -134,7 +135,7 @@ export default function Page() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/40">
-                  <TableHead>Batch ID</TableHead>
+                  <TableHead>Batch Name</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-right">Items</TableHead>
                   <TableHead>Created</TableHead>
@@ -160,24 +161,29 @@ export default function Page() {
                     })
                     .map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="font-mono text-xs">
-                          {row.id}
+                        <TableCell>
+                          <div className="font-medium">
+                            {row.batchName || `Batch #${row.id.slice(0, 8)}`}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            {row.id.slice(0, 12)}...
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span
                             className={
                               row.type === "in"
-                                ? "text-green-600"
-                                : "text-red-600"
+                                ? "text-green-600 font-medium"
+                                : "text-red-600 font-medium"
                             }
                           >
-                            {row.type.toUpperCase()}
+                            {row.type === "in" ? "Stock In" : "Stock Out"}
                           </span>
                         </TableCell>
                         <TableCell className="text-right">
                           {row.itemsCount}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-sm">
                           {row.createdAt
                             ? new Date(row.createdAt).toLocaleString()
                             : "-"}
@@ -191,7 +197,7 @@ export default function Page() {
                               await fetchDetail(row.id);
                             }}
                           >
-                            View
+                            View Details
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -242,50 +248,86 @@ export default function Page() {
           {!detail ? (
             <div className="text-sm text-muted-foreground mt-4">Loading…</div>
           ) : (
-            <div className="mt-4 space-y-3">
-              <div className="text-xs text-muted-foreground">
-                Batch: <span className="font-mono">{detail.batchId}</span>
+            <div className="mt-4 space-y-4">
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <div className="text-lg font-semibold">
+                  {detail.batchName || `Batch #${detail.batchId.slice(0, 8)}`}
+                </div>
+                <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                  <div>
+                    <span className="font-medium">Type: </span>
+                    <span
+                      className={
+                        detail.type === "in"
+                          ? "text-green-600 font-medium"
+                          : "text-red-600 font-medium"
+                      }
+                    >
+                      {detail.type === "in" ? "Stock In" : "Stock Out"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="font-medium">Created: </span>
+                    {detail.createdAt
+                      ? new Date(detail.createdAt).toLocaleString()
+                      : "-"}
+                  </div>
+                  <div>
+                    <span className="font-medium">Items: </span>
+                    {detail.items.length}
+                  </div>
+                  <div className="text-xs font-mono pt-1">
+                    ID: {detail.batchId}
+                  </div>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">
-                Type: {detail.type.toUpperCase()}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                Created:{" "}
-                {detail.createdAt
-                  ? new Date(detail.createdAt).toLocaleString()
-                  : "-"}
-              </div>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/40">
-                      <TableHead>Product</TableHead>
-                      <TableHead>SKU</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detail.items.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="h-20 text-center">
-                          No items.
-                        </TableCell>
+
+              <div>
+                <div className="text-sm font-medium mb-2">Items in this batch</div>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/40">
+                        <TableHead>Product</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead className="text-right">Quantity</TableHead>
                       </TableRow>
-                    ) : (
-                      detail.items.map((it, idx) => (
-                        <TableRow key={`${it.productId}-${idx}`}>
-                          <TableCell className="font-medium">
-                            {it.name}
-                          </TableCell>
-                          <TableCell>{it.sku || "-"}</TableCell>
-                          <TableCell className="text-right">
-                            {it.quantity}
+                    </TableHeader>
+                    <TableBody>
+                      {detail.items.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={4} className="h-20 text-center">
+                            No items.
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        detail.items.map((it, idx) => (
+                          <TableRow key={`${it.productId}-${idx}`}>
+                            <TableCell className="font-medium">
+                              {it.name}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {it.sku || "-"}
+                            </TableCell>
+                            <TableCell>
+                              {it.unit ? (
+                                <span className="text-xs font-medium px-2 py-1 rounded-md bg-muted">
+                                  {it.unit}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {it.quantity}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             </div>
           )}

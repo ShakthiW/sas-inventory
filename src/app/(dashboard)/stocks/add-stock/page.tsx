@@ -5,6 +5,7 @@ import ProductBrowser from "@/components/stock/addStock/ProductBrowser";
 import type { StockLineItem } from "@/lib/types";
 import AddedItemsSheet from "@/components/stock/addStock/AddedItemsSheet";
 import AddToStockDialog from "@/components/stock/addStock/AddToStockDialog";
+import BatchNameDialog from "@/components/stock/addStock/BatchNameDialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ export default function Page() {
   } | null>(null);
   const [items, setItems] = React.useState<StockLineItem[]>([]);
   const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [batchDialogOpen, setBatchDialogOpen] = React.useState(false);
 
   const addItem = (item: StockLineItem) => {
     setItems((prev) => [...prev, item]);
@@ -34,13 +36,21 @@ export default function Page() {
     setItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const commit = async () => {
+  const showBatchDialog = () => {
+    if (items.length === 0) {
+      toast.error("Please add items first");
+      return;
+    }
+    setBatchDialogOpen(true);
+  };
+
+  const commit = async (batchName: string) => {
     try {
       const committedItems = items; // snapshot for QR labels
       const res = await fetch("/api/stocks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, batchName }),
       });
       if (!res.ok) throw new Error("Failed to add stock");
       const data = (await res.json()) as { batchId?: string };
@@ -54,6 +64,7 @@ export default function Page() {
       }
       setItems([]);
       setSelected(null);
+      setBatchDialogOpen(false);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unexpected error";
       toast.error(message);
@@ -129,7 +140,7 @@ export default function Page() {
             <AddedItemsSheet
               items={items}
               onRemove={removeItem}
-              onCommit={commit}
+              onCommit={showBatchDialog}
             />
           </div>
         </div>
@@ -148,6 +159,13 @@ export default function Page() {
             supplier: selected?.supplier,
           })
         }
+      />
+
+      <BatchNameDialog
+        open={batchDialogOpen}
+        onOpenChange={setBatchDialogOpen}
+        onConfirm={commit}
+        itemCount={items.length}
       />
     </div>
   );

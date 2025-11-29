@@ -91,8 +91,18 @@ export async function GET(request: NextRequest) {
     return { qr, name, id };
   });
 
-  const txt = buildTscTxtFromLabelData(labels);
-  const filename = `batch_${batchId}.txt`;
+  const sizeParam = request.nextUrl.searchParams.get("size");
+  const size = (
+    ["25x25", "100x50", "100x150"].includes(sizeParam || "")
+      ? sizeParam
+      : "25x25"
+  ) as "25x25" | "100x50" | "100x150";
+
+  const itemsPerRowParam = request.nextUrl.searchParams.get("itemsPerRow");
+  const itemsPerRow = itemsPerRowParam ? parseInt(itemsPerRowParam, 10) : undefined;
+
+  const txt = buildTscTxtFromLabelData(labels, { itemsPerRow }, size);
+  const filename = `batch_${batchId}_${size}.txt`;
   return new Response(txt, {
     status: 200,
     headers: {
