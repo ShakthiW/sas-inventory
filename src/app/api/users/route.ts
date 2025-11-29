@@ -65,3 +65,29 @@ export async function POST(request: Request) {
     return Response.json({ error: message }, { status: 500 });
   }
 }
+
+export async function GET() {
+  try {
+    const db = await getDb();
+    // Fetch users from the 'user' collection (better-auth default)
+    // If we have a separate 'users_meta' collection, we might want to join or fetch from there.
+    // For now, let's assume 'user' collection has the role if we seeded it there.
+    // The previous POST implementation wrote to 'users_meta' AND 'user' (via auth.api.signUpEmail).
+    // Let's fetch from 'user' collection as it is the source of truth for auth.
+    const users = await db.collection("user").find({}).toArray();
+
+    // Map to a clean structure
+    const safeUsers = users.map((u) => ({
+      id: u._id.toString(),
+      name: u.name,
+      email: u.email,
+      role: u.role || "staff", // Default to staff if missing
+      createdAt: u.createdAt,
+    }));
+
+    return Response.json({ success: true, data: safeUsers });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return Response.json({ error: message }, { status: 500 });
+  }
+}

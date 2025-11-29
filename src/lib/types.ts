@@ -6,6 +6,7 @@ export type UserDoc = {
   name: string;
   email: string;
   passwordHash: string;
+  role?: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -27,6 +28,7 @@ export type SafeUser = {
   id: string;
   name: string;
   email: string;
+  role?: string;
 };
 
 // Inventory/Product types

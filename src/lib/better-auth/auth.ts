@@ -27,7 +27,38 @@ export const getAuth = async () => {
       autoSignIn: true,
     },
     plugins: [nextCookies()],
+    user: {
+      additionalFields: {
+        role: {
+          type: "string",
+          required: false,
+          defaultValue: "staff",
+        },
+      },
+    },
   });
+
+  // Seeding Logic
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL;
+  const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD;
+
+  if (superAdminEmail && superAdminPassword) {
+    // Check if user exists directly in DB to avoid API issues
+    const user = await db.collection("user").findOne({ email: superAdminEmail });
+
+    if (!user) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (authInstance.api as any).signUpEmail({
+        body: {
+          email: superAdminEmail,
+          password: superAdminPassword,
+          name: "Super Admin",
+          role: "super-admin",
+        },
+      });
+      console.log("Super Admin seeded successfully");
+    }
+  }
 
   return authInstance;
 };
