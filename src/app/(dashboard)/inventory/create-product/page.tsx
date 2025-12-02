@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import type { ProductInformationForm, PricingStockForm } from "@/lib/types";
+import { useRouter } from "next/navigation";
 
 export default function Page() {
   const [info, setInfo] = React.useState<ProductInformationForm | null>(null);
@@ -20,6 +21,7 @@ export default function Page() {
     sku?: string;
     unit?: string;
   }>(null);
+  const router = useRouter();
 
   const handleSubmit = async () => {
     const payload = {
@@ -70,6 +72,12 @@ export default function Page() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
+      <div>
+        <h1 className="text-2xl font-semibold mb-1">Create Product</h1>
+        <p className="text-muted-foreground">
+          Add a new product to your inventory with details, pricing, and images
+        </p>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>Product Information</CardTitle>
@@ -100,7 +108,7 @@ export default function Page() {
       </Card>
 
       <div className="flex items-center justify-end gap-3 pt-2">
-        <Button variant="outline">Cancel</Button>
+        <Button variant="outline" onClick={() => router.push("/inventory/products")}>Cancel</Button>
         <Button onClick={handleSubmit}>Add Product</Button>
       </div>
 

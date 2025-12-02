@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 const ProductSearch = dynamic(
   () => import("@/components/stock/addStock/ProductSearch"),
@@ -51,6 +52,7 @@ export default function Page() {
   const [isPending, startTransition] = React.useTransition();
   const [committing, setCommitting] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const router = useRouter();
 
   const addProductToCart = React.useCallback(
     (p: {
@@ -273,6 +275,8 @@ export default function Page() {
         description: json?.batchId ? `Batch ${json.batchId}` : undefined,
       });
       setCart([]);
+      // Redirect to stocks page
+      router.push("/stocks");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unexpected error";
       toast.error("Failed to update stocks", { description: message });

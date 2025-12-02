@@ -50,6 +50,12 @@ export default function Page() {
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
+      <div>
+        <h1 className="text-2xl font-semibold mb-1">Print Barcodes</h1>
+        <p className="text-muted-foreground">
+          Generate and print QR codes and barcodes for your inventory batches
+        </p>
+      </div>
       <div className="flex items-center justify-between">
         <div className="text-lg font-semibold">Batches</div>
       </div>

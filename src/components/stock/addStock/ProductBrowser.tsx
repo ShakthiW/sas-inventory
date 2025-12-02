@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import Image from "next/image";
+import { Package } from "lucide-react";
 
 type ProductsResponse = {
   data: ProductListItem[];
@@ -221,20 +222,24 @@ export default function ProductBrowser({
       </div>
 
       <div className="mt-4 flex-1 min-h-0 overflow-y-auto">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {loading && allRows.length === 0 ? (
             <div className="text-sm text-muted-foreground">Loading...</div>
           ) : rows.length ? (
             rows.map((p) => (
               <Card key={p.id} className="overflow-hidden">
-                <div className="h-40 w-full bg-muted/40">
-                  <Image
-                    src={p.image || "/window.svg"}
-                    alt={p.name}
-                    className="h-full w-full object-cover"
-                    width={160}
-                    height={160}
-                  />
+                <div className="h-40 w-full bg-muted/40 flex items-center justify-center">
+                  {p.image ? (
+                    <Image
+                      src={p.image}
+                      alt={p.name}
+                      className="h-full w-full object-cover"
+                      width={160}
+                      height={160}
+                    />
+                  ) : (
+                    <Package className="h-16 w-16 text-muted-foreground" />
+                  )}
                 </div>
                 <CardHeader className="pb-0">
                   <div className="flex items-baseline justify-between gap-2">

@@ -18,7 +18,7 @@ export { default as PricingStock } from "./inventory/PricingStock";
 export { default as ImageInput } from "./inventory/ImageInput";
 
 export { default as ProductTable } from "./inventory/products/ProductTable";
-export { default as LowStockTable } from "./inventory/products/LowStockTable";
+
 
 export { default as SupplierTable } from "./inventory/suppliers/SupplierTable";
 export { default as AddSupplierDialog } from "./inventory/suppliers/AddSupplierDialog";

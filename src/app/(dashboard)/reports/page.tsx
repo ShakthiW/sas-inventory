@@ -8,6 +8,12 @@ import OverallInformationCard from "@/components/reports/OverallInformationCard"
 export default function Page() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
+      <div>
+        <h1 className="text-2xl font-semibold mb-1">Reports</h1>
+        <p className="text-muted-foreground">
+          View sales reports, financial summaries, and business analytics
+        </p>
+      </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
           <WeeklyEarningCard />
