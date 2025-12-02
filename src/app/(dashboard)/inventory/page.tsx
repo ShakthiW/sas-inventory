@@ -1,6 +1,14 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import React from "react";
 
 export default function Page() {
+  const router = useRouter();
+  React.useEffect(() => {
+    router.push("/inventory/products");
+  }, [router]);
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <div className="grid auto-rows-min gap-4 md:grid-cols-3">

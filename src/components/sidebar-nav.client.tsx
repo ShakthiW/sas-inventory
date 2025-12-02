@@ -56,7 +56,7 @@ export default function SidebarNav({ groups }: { groups: NavGroup[] }) {
                 return (
                   <SidebarMenuSubItem key={sub.title}>
                     <SidebarMenuSubButton asChild isActive={isActive}>
-                      <Link href={sub.url}>{sub.title}</Link>
+                      <Link href={sub.url} className="font-medium">{sub.title}</Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                 );

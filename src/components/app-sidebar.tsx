@@ -24,10 +24,6 @@ const data = {
           url: "/dashboard",
         },
         {
-          title: "Inventory",
-          url: "/inventory",
-        },
-        {
           title: "Reports",
           url: "/reports",
         },
@@ -42,37 +38,12 @@ const data = {
           url: "/inventory/products",
         },
         {
-          title: "Low Stocks",
-          url: "/inventory/low-stocks",
-        },
-        {
-          title: "Create Product",
-          url: "/inventory/create-product",
-          isActive: true,
-        },
-        {
           title: "Suppliers",
           url: "/inventory/suppliers",
         },
         {
-          title: "Product Categories",
-          url: "/inventory/product-categories",
-        },
-        {
-          title: "Product Subcategories",
-          url: "/inventory/product-subcategories",
-        },
-        {
-          title: "Brands",
-          url: "/inventory/brands",
-        },
-        {
-          title: "Units of Measurement",
-          url: "/inventory/units-of-measurement",
-        },
-        {
-          title: "Print Barcodes",
-          url: "/inventory/print-barcodes",
+          title: "Categories",
+          url: "/inventory/categories",
         },
       ],
     },
@@ -81,24 +52,16 @@ const data = {
       url: "/stocks",
       items: [
         {
-          title: "Manage Stocks",
-          url: "/stocks/manage-stocks",
-        },
-        {
-          title: "Add Stock",
-          url: "/stocks/add-stock",
-        },
-        {
-          title: "Out Stock",
-          url: "/stocks/out-stock",
+          title: "Stock Management",
+          url: "/stocks",
         },
         {
           title: "Stock Transfers",
           url: "/stocks/stock-transfers",
         },
-        {
-          title: "History",
-          url: "/stocks/history",
+          {
+          title: "Print Barcodes",
+          url: "/stocks/print-barcodes",
         },
       ],
     },
