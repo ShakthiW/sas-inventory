@@ -20,6 +20,7 @@ const productSchema = z.object({
   category: z.string().optional(),
   subCategory: z.string().optional(),
   brand: z.string().optional(),
+  supplier: z.string().optional(),
   unit: z.string().optional(),
   description: z.string().optional(),
   pricing: pricingSchema,
@@ -250,6 +251,7 @@ export async function GET(request: NextRequest) {
 
   const categoryIdStrings = new Set<string>();
   const brandIdStrings = new Set<string>();
+  const supplierIdStrings = new Set<string>();
 
   docs.forEach((doc) => {
     const categoryValue = doc.category;
@@ -269,12 +271,24 @@ export async function GET(request: NextRequest) {
         brandIdStrings.add(brandValue);
       }
     }
+
+    const supplierValue = doc.supplier;
+    if (supplierValue) {
+      if (supplierValue instanceof ObjectId) {
+        supplierIdStrings.add(supplierValue.toString());
+      } else if (typeof supplierValue === "string") {
+        supplierIdStrings.add(supplierValue);
+      }
+    }
   });
 
   const categoryObjectIds = [...categoryIdStrings]
     .filter((id) => ObjectId.isValid(id))
     .map((id) => new ObjectId(id));
   const brandObjectIds = [...brandIdStrings]
+    .filter((id) => ObjectId.isValid(id))
+    .map((id) => new ObjectId(id));
+  const supplierObjectIds = [...supplierIdStrings]
     .filter((id) => ObjectId.isValid(id))
     .map((id) => new ObjectId(id));
 
@@ -304,6 +318,19 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const supplierMap: Record<string, string> = {};
+  if (supplierObjectIds.length) {
+    const suppliersCollection = db.collection("suppliers");
+    const suppliers = await suppliersCollection
+      .find({ _id: { $in: supplierObjectIds } }, { projection: { name: 1 } })
+      .toArray();
+    suppliers.forEach((supplier) => {
+      if (supplier?._id) {
+        supplierMap[supplier._id.toString()] = supplier.name;
+      }
+    });
+  }
+
   const data = docs.map((d) => {
     const categoryId =
       d.category instanceof ObjectId
@@ -317,6 +344,12 @@ export async function GET(request: NextRequest) {
         : typeof d.brand === "string" && ObjectId.isValid(d.brand)
         ? d.brand
         : undefined;
+    const supplierId =
+      d.supplier instanceof ObjectId
+        ? d.supplier.toString()
+        : typeof d.supplier === "string" && ObjectId.isValid(d.supplier)
+        ? d.supplier
+        : undefined;
 
     const categoryName =
       (categoryId && categoryMap[categoryId]
@@ -329,6 +362,13 @@ export async function GET(request: NextRequest) {
       (brandId && brandMap[brandId] ? brandMap[brandId] : undefined) ??
       (typeof d.brand === "string" && !ObjectId.isValid(d.brand)
         ? d.brand
+        : undefined);
+    const supplierName =
+      (supplierId && supplierMap[supplierId]
+        ? supplierMap[supplierId]
+        : undefined) ??
+      (typeof d.supplier === "string" && !ObjectId.isValid(d.supplier)
+        ? d.supplier
         : undefined);
 
     const productIdStr = d._id?.toString();
@@ -346,8 +386,10 @@ export async function GET(request: NextRequest) {
       _id: undefined,
       categoryId: categoryId ?? undefined,
       brandId: brandId ?? undefined,
+      supplierId: supplierId ?? undefined,
       category: categoryName ?? null,
       brand: brandName ?? null,
+      supplier: supplierName ?? null,
       warehouseStock,
       pricing: {
         ...d.pricing,
@@ -407,6 +449,7 @@ export async function POST(request: Request) {
       category: payload.category,
       subCategory: payload.subCategory,
       brand: payload.brand,
+      supplier: payload.supplier,
       unit: "Piece", // Default unit
       description: payload.description,
       pricing:

@@ -37,6 +37,7 @@ type ProductRow = {
   sku?: string;
   category?: string;
   brand?: string;
+  supplier?: string;
   price?: number;
   createdAt?: string;
   image?: string;
@@ -56,6 +57,7 @@ type ApiResponse = {
     sku?: string;
     category?: string;
     brand?: string;
+    supplier?: string;
     pricing?: { price?: number; quantity?: number; qtyAlert?: number };
     createdAt?: string;
     images?: string[];
@@ -108,6 +110,7 @@ export default function ProductTable() {
         sku: d.sku,
         category: d.category,
         brand: d.brand,
+        supplier: d.supplier,
         price: d?.pricing?.price,
         createdAt: d.createdAt,
         image:
@@ -227,61 +230,14 @@ export default function ProductTable() {
       { header: "SKU", accessorKey: "sku" },
       { header: "Category", accessorKey: "category" },
       { header: "Brand", accessorKey: "brand" },
-      {
-        header: "Main WH",
-        cell: ({ row }) => {
-          const stock = row.original.warehouseStock?.["warehouse-1"] ?? 0;
-          const alert = row.original.qtyAlert ?? undefined;
-          let colorClass = "";
-          if (alert && alert > 0) {
-            const ratio = stock / alert;
-            if (stock <= 0) colorClass = "text-destructive bg-destructive/10";
-            else if (ratio <= 1)
-              colorClass = "text-destructive bg-destructive/10";
-            else if (ratio <= 1.5)
-              colorClass =
-                "text-amber-600 bg-amber-600/10 dark:text-amber-400 dark:bg-amber-400/10";
-            else
-              colorClass =
-                "text-green-600 bg-green-600/10 dark:text-green-400 dark:bg-green-400/10";
-          } else {
-            colorClass = "text-muted-foreground bg-muted/30";
-          }
-          return (
-            <Badge className={`border-none ${colorClass}`}>{stock}</Badge>
-          );
-        },
-      },
-      {
-        header: "Sec WH",
-        cell: ({ row }) => {
-          const stock = row.original.warehouseStock?.["warehouse-2"] ?? 0;
-          const alert = row.original.qtyAlert ?? undefined;
-          let colorClass = "";
-          if (alert && alert > 0) {
-            const ratio = stock / alert;
-            if (stock <= 0) colorClass = "text-destructive bg-destructive/10";
-            else if (ratio <= 1)
-              colorClass = "text-destructive bg-destructive/10";
-            else if (ratio <= 1.5)
-              colorClass =
-                "text-amber-600 bg-amber-600/10 dark:text-amber-400 dark:bg-amber-400/10";
-            else
-              colorClass =
-                "text-green-600 bg-green-600/10 dark:text-green-400 dark:bg-green-400/10";
-          } else {
-            colorClass = "text-muted-foreground bg-muted/30";
-          }
-          return (
-            <Badge className={`border-none ${colorClass}`}>{stock}</Badge>
-          );
-        },
-      },
+      { header: "Supplier", accessorKey: "supplier" },
       {
         header: "Total Stock",
         accessorKey: "quantity",
         cell: ({ row }) => {
           const quantity = row.original.quantity ?? 0;
+          const stock_1 = row.original.warehouseStock?.["warehouse-1"] ?? 0;
+          const stock_2 = row.original.warehouseStock?.["warehouse-2"] ?? 0;
           const alert = row.original.qtyAlert ?? undefined;
           let colorClass = "";
           if (alert && alert > 0) {
@@ -299,7 +255,23 @@ export default function ProductTable() {
             colorClass = "text-muted-foreground bg-muted/30";
           }
           return (
-            <Badge className={`border-none ${colorClass}`}>{quantity}</Badge>
+            <div className="flex flex-col gap-1 items-start w-26">
+              <span className="flex items-center w-full justify-between">
+                <p className="text-xs font-medium">Total Stock</p>
+                <p>-</p>
+                <Badge className={`border-none ${colorClass}`}>{quantity}</Badge>
+              </span>
+              <span className="flex items-center w-full justify-between">
+                <p className="text-xs font-medium text-muted-foreground">WH-1 Stock</p>
+                <p>-</p>
+                <Badge className="border-none text-blue-600 bg-blue-600/10 dark:text-blue-400 dark:bg-blue-400/10">{stock_1}</Badge>
+              </span>
+              <span className="flex items-center w-full justify-between">
+                <p className="text-xs font-medium text-muted-foreground">WH-2 Stock</p>
+                <p>-</p>
+                <Badge className="border-none text-yellow-600 bg-yellow-600/10 dark:text-yellow-400 dark:bg-yellow-400/10">{stock_2}</Badge>
+              </span>
+            </div>
           );
         },
       },

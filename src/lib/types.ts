@@ -62,6 +62,7 @@ export type ProductInformationForm = {
   category?: string;
   subCategory?: string;
   brand?: string;
+  supplier?: string;
   unit?: string;
   description?: string;
 };
