@@ -14,7 +14,6 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,20 +24,8 @@ import {
 } from "@/components/ui/select";
 import React from "react";
 
-type Option = { label: string; value: string };
-
-const productTypes = [
-  { label: "Single Product", value: "single-product" },
-  { label: "Variable Product", value: "variable-product" },
-  { label: "Bundle Product", value: "bundle-product" },
-];
-
 const formSchema = z.object({
-  productType: z
-    .enum(["single-product", "variable-product", "bundle-product"]) // matches ProductType
-    .optional(),
   quantity: z.number().min(0).optional(),
-  unit: z.string().optional(),
   qtyAlert: z.number().min(0).optional(),
   price: z.number().optional(),
   warehouse: z.enum(["warehouse-1", "warehouse-2"]).optional(),
@@ -49,13 +36,10 @@ type PricingStockProps = {
 };
 
 export default function MyForm({ onChange }: PricingStockProps) {
-  const [unitOptions, setUnitOptions] = React.useState<Option[]>([]);
   const form = useForm<PricingStockForm>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      productType: undefined,
       quantity: undefined,
-      unit: "",
       qtyAlert: undefined,
       price: undefined,
       warehouse: "warehouse-1",
@@ -86,85 +70,20 @@ export default function MyForm({ onChange }: PricingStockProps) {
     return () => subscription.unsubscribe();
   }, [form, onChange]);
 
-  // Fetch units once
-  React.useEffect(() => {
-    let mounted = true;
-    const run = async () => {
-      try {
-        const res = await fetch(
-          "/api/inventory/units?limit=200&sort=name&dir=asc"
-        );
-        const json = await res.json();
-        type UnitRow = {
-          id?: string;
-          _id?: string;
-          name: string;
-          shortName?: string;
-        };
-        const units: Option[] = ((json?.data as UnitRow[]) || []).map((u) => ({
-          value: u.name,
-          label: u.shortName ? `${u.name} (${u.shortName})` : u.name,
-        }));
-        if (mounted) setUnitOptions(units);
-      } catch {
-        // ignore
-      } finally {
-        // no-op
-      }
-    };
-    run();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4 mx-auto"
       >
-        <FormField
-          control={form.control}
-          name="productType"
-          render={({ field }) => (
-            <FormItem className="space-y-2">
-              <FormLabel>Product Type</FormLabel>
-              <FormControl>
-                <RadioGroup
-                  onValueChange={field.onChange}
-                  value={field.value}
-                  className="flex space-x-4"
-                >
-                  {productTypes.map((option, index) => (
-                    <FormItem
-                      className="flex items-center space-y-0"
-                      key={index}
-                    >
-                      <FormControl>
-                        <RadioGroupItem value={option.value} />
-                      </FormControl>
-                      <FormLabel className="font-normal">
-                        {option.label}
-                      </FormLabel>
-                    </FormItem>
-                  ))}
-                </RadioGroup>
-              </FormControl>
-
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-4">
+          <div className="col-span-6">
             <FormField
               control={form.control}
               name="quantity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Quantity</FormLabel>
+                  <FormLabel>Quantity (Pieces)</FormLabel>
                   <FormControl>
                     <Input
                       placeholder="Quantity"
@@ -180,7 +99,7 @@ export default function MyForm({ onChange }: PricingStockProps) {
             />
           </div>
 
-          <div className="col-span-4">
+          <div className="col-span-6">
             <FormField
               control={form.control}
               name="warehouse"
@@ -196,34 +115,6 @@ export default function MyForm({ onChange }: PricingStockProps) {
                     <SelectContent>
                       <SelectItem value="warehouse-1">Main Warehouse</SelectItem>
                       <SelectItem value="warehouse-2">Secondary Warehouse</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-
-          <div className="col-span-4">
-            <FormField
-              control={form.control}
-              name="unit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Unit</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select the Unit of Measure" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {unitOptions.map((unit) => (
-                        <SelectItem key={unit.value} value={unit.value}>
-                          {unit.label}
-                        </SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
 

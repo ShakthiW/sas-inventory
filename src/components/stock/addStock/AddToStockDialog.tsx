@@ -13,15 +13,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type UnitDetail = {
-  id: string;
-  name: string;
-  shortName?: string;
-  kind: "base" | "pack";
-  baseUnitId?: string;
-  unitsPerPack?: number;
-};
-
 export type AddToStockDialogProps = {
   open: boolean;
   onOpenChange(open: boolean): void;
@@ -45,102 +36,10 @@ export default function AddToStockDialog({
   product,
   onConfirm,
 }: AddToStockDialogProps) {
-  const [allUnits, setAllUnits] = React.useState<UnitDetail[]>([]);
-  const [filteredUnits, setFilteredUnits] = React.useState<UnitDetail[]>([]);
-  const [unit, setUnit] = React.useState<string>("");
   const [quantity, setQuantity] = React.useState<number>(1);
   const [warehouse, setWarehouse] = React.useState<"warehouse-1" | "warehouse-2">("warehouse-1");
-  // unitPrice is derived from product price; no input in dialog
 
-  React.useEffect(() => {
-    if (!open) return;
-    const fetchUnits = async () => {
-      const res = await fetch(
-        "/api/inventory/units?limit=200&dir=asc&sort=name"
-      );
-      const json = await res.json();
-      const data = (json?.data || []).map(
-        (u: {
-          id?: string;
-          _id?: string;
-          name: string;
-          shortName?: string;
-          kind: "base" | "pack";
-          baseUnitId?: string;
-          unitsPerPack?: number;
-        }) => ({
-          id: u.id || u._id,
-          name: u.name,
-          shortName: u.shortName,
-          kind: u.kind,
-          baseUnitId: u.baseUnitId,
-          unitsPerPack: u.unitsPerPack,
-        })
-      );
-      setAllUnits(data);
-    };
-    fetchUnits();
-  }, [open]);
-
-  React.useEffect(() => {
-    // When product changes, filter units and auto-select default
-    if (allUnits.length === 0) {
-      setFilteredUnits([]);
-      setUnit("");
-      setQuantity(1);
-      return;
-    }
-
-    // If no product unit, show all units but don't auto-select
-    if (!product?.unit) {
-      setFilteredUnits(allUnits);
-      setUnit("");
-      setQuantity(1);
-      return;
-    }
-
-    // Find the product's default unit (could be ID or name)
-    let productUnit = allUnits.find((u) => u.id === product.unit);
-    
-    // If not found by ID, try by name (in case unit is stored as name)
-    if (!productUnit) {
-      productUnit = allUnits.find((u) => u.name === product.unit);
-    }
-    
-    if (!productUnit) {
-      // Product has a unit ID/name but it's not found in the list
-      // Show all units and don't auto-select
-      setFilteredUnits(allUnits);
-      setUnit("");
-      setQuantity(1);
-      return;
-    }
-
-    // Filter to show related units: 
-    // - If product unit is base, show it + all pack units that reference it
-    // - If product unit is pack, show its base unit + all pack units that reference the same base
-    let related: UnitDetail[] = [];
-    if (productUnit.kind === "base") {
-      // Show base unit + all packs that reference it
-      related = allUnits.filter(
-        (u) => u.id === productUnit.id || u.baseUnitId === productUnit.id
-      );
-    } else if (productUnit.kind === "pack" && productUnit.baseUnitId) {
-      // Show base unit + all packs that reference the same base
-      related = allUnits.filter(
-        (u) =>
-          u.id === productUnit.baseUnitId ||
-          u.baseUnitId === productUnit.baseUnitId
-      );
-    }
-
-    const unitsToShow = related.length > 0 ? related : [productUnit];
-    setFilteredUnits(unitsToShow);
-    setUnit(productUnit.name); // Auto-select the product's unit
-    setQuantity(1);
-  }, [product?.unit, product?.id, allUnits]);
-
-  const canConfirm = !!product && quantity > 0 && !!unit;
+  const canConfirm = !!product && quantity > 0;
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -166,36 +65,16 @@ export default function AddToStockDialog({
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="mb-1 text-xs text-muted-foreground">Unit</div>
-                <Select value={unit} onValueChange={(v) => setUnit(v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose unit" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredUnits.map((u) => (
-                      <SelectItem key={u.id} value={u.name}>
-                        {u.name} {u.shortName ? `(${u.shortName})` : ""}
-                        {u.kind === "pack" && u.unitsPerPack
-                          ? ` - ${u.unitsPerPack} per pack`
-                          : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <div className="mb-1 text-xs text-muted-foreground">Quantity</div>
-                <Input
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setQuantity(Number(e.target.value))
-                  }
-                />
-              </div>
+            <div>
+              <div className="mb-1 text-xs text-muted-foreground">Quantity (Pieces)</div>
+              <Input
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setQuantity(Number(e.target.value))
+                }
+              />
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
@@ -210,7 +89,7 @@ export default function AddToStockDialog({
                   productId: product.id,
                   name: product.name,
                   sku: product.sku,
-                  unit: unit || product.unit || undefined,
+                  unit: "Piece",
                   quantity,
                   unitPrice: product?.price,
                   category: product.category,

@@ -4,15 +4,9 @@ import type { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 
 // Zod schema mirroring our frontend forms
-const productTypeEnum = z
-  .enum(["single-product", "variable-product", "bundle-product"]) // keep in sync with ProductType
-  .optional();
-
 const pricingSchema = z
   .object({
-    productType: productTypeEnum,
     quantity: z.coerce.number().min(0).optional(),
-    unit: z.string().optional(),
     qtyAlert: z.coerce.number().min(0).optional(),
     price: z.coerce.number().min(0).optional(),
     warehouse: z.enum(["warehouse-1", "warehouse-2"]).optional(),
@@ -413,15 +407,14 @@ export async function POST(request: Request) {
       category: payload.category,
       subCategory: payload.subCategory,
       brand: payload.brand,
-      unit: payload.unit,
+      unit: "Piece", // Default unit
       description: payload.description,
       pricing:
         Object.keys(pricingWithoutWarehouse).length > 0
           ? pricingWithoutWarehouse
           : {
-              productType: payload.pricing?.productType,
               quantity: 0,
-              unit: payload.pricing?.unit || "",
+              unit: "Piece",
               qtyAlert: payload.pricing?.qtyAlert,
               price: payload.pricing?.price,
             },
@@ -450,7 +443,7 @@ export async function POST(request: Request) {
             sku: payload.sku,
             quantity: payload.pricing.quantity,
             warehouse: payload.pricing.warehouse,
-            unit: payload.pricing.unit,
+            unit: "Piece",
             unitPrice: payload.pricing.price ?? 0,
           },
         ],

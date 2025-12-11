@@ -68,9 +68,7 @@ export type ProductInformationForm = {
 
 // Form model for Pricing & Stocks section
 export type PricingStockForm = {
-  productType?: ProductType;
   quantity?: number;
-  unit?: string;
   qtyAlert?: number;
   price?: number;
   warehouse?: WarehouseId;
@@ -79,9 +77,7 @@ export type PricingStockForm = {
 // Combined payload that could be sent when creating a product
 export type ProductCreatePayload = ProductInformationForm & {
   pricing: {
-    productType?: ProductType;
     quantity?: number;
-    unit?: string;
     qtyAlert?: number;
     price?: number;
   };

@@ -31,6 +31,3 @@ export { default as AddBrandsDialog } from "./inventory/brands/AddBrandsDialog";
 
 export { default as SubCategoriesTable } from "./inventory/categories/subcategories/SubCategoriesTable";
 export { default as AddSubCategoryDialog } from "./inventory/categories/subcategories/AddSubCategoryDialog";
-
-export { default as UnitsOfMeasureTable } from "./inventory/unitsOfMeasurement/UnitsOfMeasureTable";
-export { default as AddUnitsOfMeasureDialog } from "./inventory/unitsOfMeasurement/AddUnitsOfMeasureDialog";

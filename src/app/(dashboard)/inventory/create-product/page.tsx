@@ -28,9 +28,7 @@ export default function Page() {
       ...(info ?? {}),
       pricing: pricing
         ? {
-            productType: pricing.productType,
             quantity: pricing.quantity,
-            unit: pricing.unit,
             qtyAlert: pricing.qtyAlert,
             price: pricing.price,
             warehouse: pricing.warehouse,
@@ -63,7 +61,7 @@ export default function Page() {
           id: createdId,
           name: info?.name || "New Product",
           sku: info?.sku,
-          unit: pricing?.unit,
+          unit: "Piece",
         });
       }
     } catch (e) {
