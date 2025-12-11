@@ -37,6 +37,7 @@ const formSchema = z.object({
   brand: z.string().optional(),
   supplier: z.string().optional(),
   unit: z.string().optional(),
+  qrSize: z.enum(["100x50", "100x150", "25x25"]).optional(),
   description: z.string().optional(),
 });
 
@@ -64,6 +65,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
       brand: "",
       supplier: "",
       unit: "",
+      qrSize: "100x50",
       description: "",
     },
   });
@@ -450,6 +452,34 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                           {supplier.label}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-6">
+            <FormField
+              control={form.control}
+              name="qrSize"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>QR Code Size</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select QR code size" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="100x50">100x50 mm</SelectItem>
+                      <SelectItem value="100x150">100x150 mm</SelectItem>
+                      <SelectItem value="25x25">25x25 mm</SelectItem>
                     </SelectContent>
                   </Select>
 

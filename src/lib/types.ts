@@ -54,6 +54,9 @@ export type ProductType =
   | "variable-product"
   | "bundle-product";
 
+// QR Code size options
+export type QRCodeSize = "100x50" | "100x150" | "25x25";
+
 // Form model for Product Information section
 export type ProductInformationForm = {
   name: string;
@@ -64,6 +67,7 @@ export type ProductInformationForm = {
   brand?: string;
   supplier?: string;
   unit?: string;
+  qrSize?: QRCodeSize;
   description?: string;
 };
 
@@ -375,4 +379,5 @@ export type StockLineItem = {
   brand?: string;
   supplier?: string;
   warehouse: WarehouseId; // Which warehouse the stock is going to
+  qrSize?: QRCodeSize; // QR code size for this product
 };

@@ -22,6 +22,7 @@ const productSchema = z.object({
   brand: z.string().optional(),
   supplier: z.string().optional(),
   unit: z.string().optional(),
+  qrSize: z.enum(["100x50", "100x150", "25x25"]).optional(),
   description: z.string().optional(),
   pricing: pricingSchema,
   images: z.array(z.string()).optional(), // image URLs or paths if provided later
@@ -451,6 +452,7 @@ export async function POST(request: Request) {
       brand: payload.brand,
       supplier: payload.supplier,
       unit: "Piece", // Default unit
+      qrSize: payload.qrSize,
       description: payload.description,
       pricing:
         Object.keys(pricingWithoutWarehouse).length > 0

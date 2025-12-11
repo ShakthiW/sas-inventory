@@ -122,12 +122,40 @@ export async function GET(request: NextRequest) {
       const items = Array.isArray(rec.items)
         ? (rec.items as StockLineItem[])
         : [];
+      
+      // Fetch qrSize from products for each item
+      const products = db.collection("products");
+      const productIds = items.map(item => {
+        try {
+          return new ObjectId(item.productId);
+        } catch {
+          return null;
+        }
+      }).filter((id): id is ObjectId => id !== null);
+      
+      const productDocs = await products.find(
+        { _id: { $in: productIds } },
+        { projection: { _id: 1, qrSize: 1 } }
+      ).toArray();
+      
+      const qrSizeMap = new Map<string, string>();
+      for (const p of productDocs) {
+        const id = p._id instanceof ObjectId ? p._id.toString() : String(p._id);
+        if (p.qrSize) qrSizeMap.set(id, String(p.qrSize));
+      }
+      
+      // Enrich items with qrSize
+      const enrichedItems = items.map(item => ({
+        ...item,
+        qrSize: qrSizeMap.get(item.productId) || "100x50",
+      }));
+      
       return Response.json({
         batchId: rec._id.toString(),
         type: rec.type ?? "in",
         batchName: rec.batchName,
         createdAt: rec.createdAt ?? null,
-        items,
+        items: enrichedItems,
       });
     }
 
@@ -137,11 +165,12 @@ export async function GET(request: NextRequest) {
       Math.max(parseInt(searchParams.get("limit") || "20", 10), 1),
       100
     );
+    const sortDir = searchParams.get("sort") === "asc" ? 1 : -1;
     const filter: Record<string, unknown> = {};
     const total = await batches.countDocuments(filter);
     const docs = await batches
       .find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: sortDir })
       .skip((page - 1) * limit)
       .limit(limit)
       .toArray();
