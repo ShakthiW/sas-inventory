@@ -41,6 +41,7 @@ const formSchema = z.object({
   unit: z.string().optional(),
   qtyAlert: z.number().min(0).optional(),
   price: z.number().optional(),
+  warehouse: z.enum(["warehouse-1", "warehouse-2"]).optional(),
 });
 
 type PricingStockProps = {
@@ -57,6 +58,7 @@ export default function MyForm({ onChange }: PricingStockProps) {
       unit: "",
       qtyAlert: undefined,
       price: undefined,
+      warehouse: "warehouse-1",
     },
   });
 
@@ -156,7 +158,7 @@ export default function MyForm({ onChange }: PricingStockProps) {
         />
 
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-6">
+          <div className="col-span-4">
             <FormField
               control={form.control}
               name="quantity"
@@ -178,7 +180,32 @@ export default function MyForm({ onChange }: PricingStockProps) {
             />
           </div>
 
-          <div className="col-span-6">
+          <div className="col-span-4">
+            <FormField
+              control={form.control}
+              name="warehouse"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Warehouse</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select warehouse" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="warehouse-1">Main Warehouse</SelectItem>
+                      <SelectItem value="warehouse-2">Secondary Warehouse</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="col-span-4">
             <FormField
               control={form.control}
               name="unit"

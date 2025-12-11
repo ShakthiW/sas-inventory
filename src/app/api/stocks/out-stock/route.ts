@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { ObjectId } from "mongodb";
 import type { StockLineItem } from "@/lib/types";
 
 const stockLineItemSchema = z.object({
@@ -11,6 +10,7 @@ const stockLineItemSchema = z.object({
   quantity: z.number().int().positive(),
   unitPrice: z.number().nonnegative().optional(),
   batch: z.string().optional(),
+  warehouse: z.enum(["warehouse-1", "warehouse-2"]),
 });
 
 const stockPayloadSchema = z.object({
@@ -40,7 +40,6 @@ export async function POST(request: Request) {
     } = parsed.data;
     const { items, reference = "", note = "" } = payload;
     const db = await getDb();
-    const products = db.collection("products");
     const batches = db.collection("stock_batches");
 
     await Promise.allSettled([
@@ -48,6 +47,65 @@ export async function POST(request: Request) {
       batches.createIndex({ updatedAt: 1 }),
     ]);
 
+    // Calculate current warehouse stock from batches to validate quantities
+    const warehouseStockMap: Record<
+      string,
+      { "warehouse-1": number; "warehouse-2": number }
+    > = {};
+
+    const batchDocs = await batches.find({}).toArray();
+    batchDocs.forEach((batch) => {
+      const batchItems = batch.items as Array<{
+        productId: string;
+        quantity: number;
+        warehouse?: "warehouse-1" | "warehouse-2";
+      }>;
+
+      if (Array.isArray(batchItems)) {
+        batchItems.forEach((item) => {
+          const prodIdStr = item.productId;
+          const warehouse = item.warehouse || "warehouse-1";
+          const qty = item.quantity || 0;
+
+          if (!warehouseStockMap[prodIdStr]) {
+            warehouseStockMap[prodIdStr] = {
+              "warehouse-1": 0,
+              "warehouse-2": 0,
+            };
+          }
+
+          if (batch.type === "in") {
+            warehouseStockMap[prodIdStr][warehouse] += qty;
+          } else if (batch.type === "out") {
+            warehouseStockMap[prodIdStr][warehouse] -= qty;
+          }
+        });
+      }
+    });
+
+    // Validate that requested quantities don't exceed available stock
+    const errors: string[] = [];
+    for (const item of items) {
+      const available = warehouseStockMap[item.productId]?.[item.warehouse] || 0;
+      if (item.quantity > available) {
+        const warehouseName = item.warehouse === "warehouse-1" ? "Main Warehouse" : "Secondary Warehouse";
+        errors.push(
+          `${item.name || item.productId}: Insufficient stock in ${warehouseName}. Available: ${available}, Requested: ${item.quantity}`
+        );
+      }
+    }
+
+    if (errors.length > 0) {
+      return Response.json(
+        {
+          error: "Insufficient stock",
+          details: errors,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Create the out-stock batch with warehouse information
     const now = new Date();
     const batchInsert = await batches.insertOne({
       type: "out",
@@ -59,37 +117,9 @@ export async function POST(request: Request) {
     } as unknown as Record<string, unknown>);
     const batchId = batchInsert.insertedId.toString();
 
-    // Aggregate quantities per productId
-    // NO CONVERSION - remove quantities in the product's unit as-is
-    const quantityByProductId = new Map<string, number>();
-    for (const it of items) {
-      const prev = quantityByProductId.get(it.productId) ?? 0;
-      quantityByProductId.set(it.productId, prev + it.quantity);
-    }
-
-    const operations = Array.from(quantityByProductId.entries()).map(
-      ([productId, qty]) => ({
-        updateOne: {
-          filter: { _id: new ObjectId(productId) },
-          update: {
-            $set: { updatedAt: new Date() },
-            $inc: { "pricing.quantity": -qty },
-          },
-        },
-      })
-    );
-
-    if (operations.length === 0) {
-      return Response.json({ batchId, updated: 0 });
-    }
-
-    // Only update existing products; do not upsert on out-stock
-    const result = await products.bulkWrite(operations, { ordered: false });
-
     return Response.json({
       batchId,
-      matched: result.matchedCount,
-      modified: result.modifiedCount,
+      itemsProcessed: items.length,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unexpected server error";

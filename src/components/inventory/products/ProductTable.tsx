@@ -42,6 +42,10 @@ type ProductRow = {
   image?: string;
   quantity?: number;
   qtyAlert?: number;
+  warehouseStock?: {
+    "warehouse-1": number;
+    "warehouse-2": number;
+  };
 };
 
 type ApiResponse = {
@@ -55,6 +59,10 @@ type ApiResponse = {
     pricing?: { price?: number; quantity?: number; qtyAlert?: number };
     createdAt?: string;
     images?: string[];
+    warehouseStock?: {
+      "warehouse-1": number;
+      "warehouse-2": number;
+    };
   }>;
   meta: {
     total: number;
@@ -108,6 +116,7 @@ export default function ProductTable() {
             : undefined,
         quantity: d?.pricing?.quantity,
         qtyAlert: d?.pricing?.qtyAlert,
+        warehouseStock: d.warehouseStock,
       }));
       setRows(mapped);
       setMeta(json.meta);
@@ -219,7 +228,57 @@ export default function ProductTable() {
       { header: "Category", accessorKey: "category" },
       { header: "Brand", accessorKey: "brand" },
       {
-        header: "Stock",
+        header: "Main WH",
+        cell: ({ row }) => {
+          const stock = row.original.warehouseStock?.["warehouse-1"] ?? 0;
+          const alert = row.original.qtyAlert ?? undefined;
+          let colorClass = "";
+          if (alert && alert > 0) {
+            const ratio = stock / alert;
+            if (stock <= 0) colorClass = "text-destructive bg-destructive/10";
+            else if (ratio <= 1)
+              colorClass = "text-destructive bg-destructive/10";
+            else if (ratio <= 1.5)
+              colorClass =
+                "text-amber-600 bg-amber-600/10 dark:text-amber-400 dark:bg-amber-400/10";
+            else
+              colorClass =
+                "text-green-600 bg-green-600/10 dark:text-green-400 dark:bg-green-400/10";
+          } else {
+            colorClass = "text-muted-foreground bg-muted/30";
+          }
+          return (
+            <Badge className={`border-none ${colorClass}`}>{stock}</Badge>
+          );
+        },
+      },
+      {
+        header: "Sec WH",
+        cell: ({ row }) => {
+          const stock = row.original.warehouseStock?.["warehouse-2"] ?? 0;
+          const alert = row.original.qtyAlert ?? undefined;
+          let colorClass = "";
+          if (alert && alert > 0) {
+            const ratio = stock / alert;
+            if (stock <= 0) colorClass = "text-destructive bg-destructive/10";
+            else if (ratio <= 1)
+              colorClass = "text-destructive bg-destructive/10";
+            else if (ratio <= 1.5)
+              colorClass =
+                "text-amber-600 bg-amber-600/10 dark:text-amber-400 dark:bg-amber-400/10";
+            else
+              colorClass =
+                "text-green-600 bg-green-600/10 dark:text-green-400 dark:bg-green-400/10";
+          } else {
+            colorClass = "text-muted-foreground bg-muted/30";
+          }
+          return (
+            <Badge className={`border-none ${colorClass}`}>{stock}</Badge>
+          );
+        },
+      },
+      {
+        header: "Total Stock",
         accessorKey: "quantity",
         cell: ({ row }) => {
           const quantity = row.original.quantity ?? 0;

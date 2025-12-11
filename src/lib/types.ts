@@ -33,6 +33,21 @@ export type SafeUser = {
 
 // Inventory/Product types
 
+// Warehouse types
+export type WarehouseId = "warehouse-1" | "warehouse-2";
+
+export type Warehouse = {
+  id: WarehouseId;
+  name: string;
+  location?: string;
+};
+
+// Hardcoded warehouses in the system
+export const WAREHOUSES: Warehouse[] = [
+  { id: "warehouse-1", name: "Main Warehouse", location: "Primary Location" },
+  { id: "warehouse-2", name: "Secondary Warehouse", location: "Secondary Location" },
+];
+
 // Product type as used in Pricing & Stocks form
 export type ProductType =
   | "single-product"
@@ -58,6 +73,7 @@ export type PricingStockForm = {
   unit?: string;
   qtyAlert?: number;
   price?: number;
+  warehouse?: WarehouseId;
 };
 
 // Combined payload that could be sent when creating a product
@@ -307,6 +323,47 @@ export type SupplierListItem = {
   createdAt?: string;
 };
 
+// Warehouse Stock Transfer types
+export type StockTransferPayload = {
+  fromWarehouse: WarehouseId;
+  toWarehouse: WarehouseId;
+  productId: string;
+  productName: string;
+  sku?: string;
+  quantity: number;
+  date?: string;
+  reference?: string;
+  note?: string;
+};
+
+export type StockTransferDoc = {
+  _id?: ObjectId;
+  fromWarehouse: WarehouseId;
+  toWarehouse: WarehouseId;
+  productId: ObjectId;
+  productName: string;
+  sku?: string;
+  quantity: number;
+  date: Date;
+  note?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type StockTransferListItem = {
+  id: string;
+  fromWarehouse: WarehouseId;
+  fromWarehouseName: string;
+  toWarehouse: WarehouseId;
+  toWarehouseName: string;
+  productName: string;
+  sku?: string;
+  quantity: number;
+  date: string;
+  note?: string;
+  createdAt?: string;
+};
+
 // Add Stock line item used in the Add Stock flow
 export type StockLineItem = {
   productId: string;
@@ -320,4 +377,5 @@ export type StockLineItem = {
   subCategory?: string;
   brand?: string;
   supplier?: string;
+  warehouse: WarehouseId; // Which warehouse the stock is going to
 };

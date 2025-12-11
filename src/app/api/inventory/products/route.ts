@@ -15,6 +15,7 @@ const pricingSchema = z
     unit: z.string().optional(),
     qtyAlert: z.coerce.number().min(0).optional(),
     price: z.coerce.number().min(0).optional(),
+    warehouse: z.enum(["warehouse-1", "warehouse-2"]).optional(),
   })
   .optional();
 
@@ -67,15 +68,65 @@ export async function GET(request: NextRequest) {
       }
 
       const doc = await collection.findOne({ _id: new ObjectId(id) });
-      const data = doc
-        ? [
-            {
-              ...doc,
-              id: doc._id?.toString(),
-              _id: undefined,
-            },
-          ]
-        : [];
+      
+      if (!doc) {
+        return Response.json({
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            limit: 1,
+            pages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        });
+      }
+
+      // Calculate warehouse stock for this product
+      const batches = db.collection("stock_batches");
+      const batchDocs = await batches.find({}).toArray();
+      
+      const warehouseStock = { "warehouse-1": 0, "warehouse-2": 0 };
+      const productIdStr = doc._id?.toString();
+
+      batchDocs.forEach((batch) => {
+        const items = batch.items as Array<{
+          productId: string;
+          quantity: number;
+          warehouse?: "warehouse-1" | "warehouse-2";
+        }>;
+
+        if (Array.isArray(items)) {
+          items.forEach((item) => {
+            if (item.productId === productIdStr) {
+              const warehouse = item.warehouse || "warehouse-1";
+              const qty = item.quantity || 0;
+
+              if (batch.type === "in") {
+                warehouseStock[warehouse] += qty;
+              } else if (batch.type === "out") {
+                warehouseStock[warehouse] -= qty;
+              }
+            }
+          });
+        }
+      });
+
+      const totalStock = warehouseStock["warehouse-1"] + warehouseStock["warehouse-2"];
+
+      const data = [
+        {
+          ...doc,
+          id: doc._id?.toString(),
+          _id: undefined,
+          warehouseStock,
+          pricing: {
+            ...doc.pricing,
+            quantity: totalStock,
+          },
+        },
+      ];
 
       return Response.json({
         data,
@@ -157,6 +208,52 @@ export async function GET(request: NextRequest) {
     .limit(limit)
     .toArray();
 
+  // Calculate warehouse-specific stock from stock_batches
+  const productIds = docs
+    .map((d) => d._id)
+    .filter((id): id is ObjectId => !!id);
+  const batches = db.collection("stock_batches");
+
+  // Aggregate stock by product and warehouse
+  const warehouseStockMap: Record<
+    string,
+    { "warehouse-1": number; "warehouse-2": number }
+  > = {};
+
+  if (productIds.length > 0) {
+    const batchDocs = await batches.find({}).toArray();
+
+    batchDocs.forEach((batch) => {
+      const items = batch.items as Array<{
+        productId: string;
+        quantity: number;
+        warehouse?: "warehouse-1" | "warehouse-2";
+      }>;
+
+      if (Array.isArray(items)) {
+        items.forEach((item) => {
+          const prodIdStr = item.productId;
+          const warehouse = item.warehouse || "warehouse-1"; // Default to warehouse-1 for old records
+          const qty = item.quantity || 0;
+
+          if (!warehouseStockMap[prodIdStr]) {
+            warehouseStockMap[prodIdStr] = {
+              "warehouse-1": 0,
+              "warehouse-2": 0,
+            };
+          }
+
+          // Add for "in" type, subtract for "out" type
+          if (batch.type === "in") {
+            warehouseStockMap[prodIdStr][warehouse] += qty;
+          } else if (batch.type === "out") {
+            warehouseStockMap[prodIdStr][warehouse] -= qty;
+          }
+        });
+      }
+    });
+  }
+
   const categoryIdStrings = new Set<string>();
   const brandIdStrings = new Set<string>();
 
@@ -191,10 +288,7 @@ export async function GET(request: NextRequest) {
   if (categoryObjectIds.length) {
     const categoriesCollection = db.collection("product_categories");
     const categories = await categoriesCollection
-      .find(
-        { _id: { $in: categoryObjectIds } },
-        { projection: { name: 1 } }
-      )
+      .find({ _id: { $in: categoryObjectIds } }, { projection: { name: 1 } })
       .toArray();
     categories.forEach((cat) => {
       if (cat?._id) {
@@ -207,10 +301,7 @@ export async function GET(request: NextRequest) {
   if (brandObjectIds.length) {
     const brandsCollection = db.collection("brands");
     const brands = await brandsCollection
-      .find(
-        { _id: { $in: brandObjectIds } },
-        { projection: { name: 1 } }
-      )
+      .find({ _id: { $in: brandObjectIds } }, { projection: { name: 1 } })
       .toArray();
     brands.forEach((brand) => {
       if (brand?._id) {
@@ -224,14 +315,14 @@ export async function GET(request: NextRequest) {
       d.category instanceof ObjectId
         ? d.category.toString()
         : typeof d.category === "string" && ObjectId.isValid(d.category)
-          ? d.category
-          : undefined;
+        ? d.category
+        : undefined;
     const brandId =
       d.brand instanceof ObjectId
         ? d.brand.toString()
         : typeof d.brand === "string" && ObjectId.isValid(d.brand)
-          ? d.brand
-          : undefined;
+        ? d.brand
+        : undefined;
 
     const categoryName =
       (categoryId && categoryMap[categoryId]
@@ -246,6 +337,15 @@ export async function GET(request: NextRequest) {
         ? d.brand
         : undefined);
 
+    const productIdStr = d._id?.toString();
+    const warehouseStock =
+      productIdStr && warehouseStockMap[productIdStr]
+        ? warehouseStockMap[productIdStr]
+        : { "warehouse-1": 0, "warehouse-2": 0 };
+
+    // Calculate total stock from warehouse stocks
+    const totalStock = warehouseStock["warehouse-1"] + warehouseStock["warehouse-2"];
+
     return {
       ...d,
       id: d._id?.toString(),
@@ -254,6 +354,11 @@ export async function GET(request: NextRequest) {
       brandId: brandId ?? undefined,
       category: categoryName ?? null,
       brand: brandName ?? null,
+      warehouseStock,
+      pricing: {
+        ...d.pricing,
+        quantity: totalStock, // Override with calculated total from batches
+      },
     };
   });
 
@@ -296,6 +401,11 @@ export async function POST(request: Request) {
     ]);
 
     const now = new Date();
+
+    // Extract warehouse from pricing before storing (warehouse is only used for initial stock batch)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { warehouse, ...pricingWithoutWarehouse } = payload.pricing ?? {};
+
     const doc = {
       name: payload.name,
       slug: payload.slug,
@@ -305,15 +415,56 @@ export async function POST(request: Request) {
       brand: payload.brand,
       unit: payload.unit,
       description: payload.description,
-      pricing: payload.pricing ?? {},
+      pricing:
+        Object.keys(pricingWithoutWarehouse).length > 0
+          ? pricingWithoutWarehouse
+          : {
+              productType: payload.pricing?.productType,
+              quantity: 0,
+              unit: payload.pricing?.unit || "",
+              qtyAlert: payload.pricing?.qtyAlert,
+              price: payload.pricing?.price,
+            },
       images: payload.images ?? [],
       createdAt: now,
       updatedAt: now,
     };
 
     const result = await collection.insertOne(doc as Record<string, unknown>);
+    const insertedId = result.insertedId;
+
+    // Create initial stock batch if quantity and warehouse are provided
+    if (
+      payload.pricing?.quantity &&
+      payload.pricing.quantity > 0 &&
+      payload.pricing.warehouse
+    ) {
+      const stockBatchesCollection = db.collection("stock_batches");
+      const batchDoc = {
+        type: "in",
+        batchName: `Initial Stock - ${payload.sku}`,
+        items: [
+          {
+            productId: insertedId.toString(),
+            name: payload.name,
+            sku: payload.sku,
+            quantity: payload.pricing.quantity,
+            warehouse: payload.pricing.warehouse,
+            unit: payload.pricing.unit,
+            unitPrice: payload.pricing.price ?? 0,
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await stockBatchesCollection.insertOne(
+        batchDoc as Record<string, unknown>
+      );
+    }
+
     return Response.json(
-      { insertedId: result.insertedId.toString() },
+      { insertedId: insertedId.toString() },
       { status: 201 }
     );
   } catch (error: unknown) {

@@ -49,6 +49,7 @@ export default function AddToStockDialog({
   const [filteredUnits, setFilteredUnits] = React.useState<UnitDetail[]>([]);
   const [unit, setUnit] = React.useState<string>("");
   const [quantity, setQuantity] = React.useState<number>(1);
+  const [warehouse, setWarehouse] = React.useState<"warehouse-1" | "warehouse-2">("warehouse-1");
   // unitPrice is derived from product price; no input in dialog
 
   React.useEffect(() => {
@@ -152,35 +153,49 @@ export default function AddToStockDialog({
           <Dialog.Description className="text-sm text-muted-foreground">
             {product ? product.name : "Select a product"}
           </Dialog.Description>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid grid-cols-1 gap-3">
             <div>
-              <div className="mb-1 text-xs text-muted-foreground">Unit</div>
-              <Select value={unit} onValueChange={(v) => setUnit(v)}>
+              <div className="mb-1 text-xs text-muted-foreground">Warehouse</div>
+              <Select value={warehouse} onValueChange={(v) => setWarehouse(v as "warehouse-1" | "warehouse-2")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose unit" />
+                  <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
                 <SelectContent>
-                  {filteredUnits.map((u) => (
-                    <SelectItem key={u.id} value={u.name}>
-                      {u.name} {u.shortName ? `(${u.shortName})` : ""}
-                      {u.kind === "pack" && u.unitsPerPack
-                        ? ` - ${u.unitsPerPack} per pack`
-                        : ""}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="warehouse-1">Main Warehouse</SelectItem>
+                  <SelectItem value="warehouse-2">Secondary Warehouse</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <div className="mb-1 text-xs text-muted-foreground">Quantity</div>
-              <Input
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setQuantity(Number(e.target.value))
-                }
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Unit</div>
+                <Select value={unit} onValueChange={(v) => setUnit(v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose unit" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredUnits.map((u) => (
+                      <SelectItem key={u.id} value={u.name}>
+                        {u.name} {u.shortName ? `(${u.shortName})` : ""}
+                        {u.kind === "pack" && u.unitsPerPack
+                          ? ` - ${u.unitsPerPack} per pack`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Quantity</div>
+                <Input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setQuantity(Number(e.target.value))
+                  }
+                />
+              </div>
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
@@ -202,6 +217,7 @@ export default function AddToStockDialog({
                   subCategory: product.subCategory,
                   brand: product.brand,
                   supplier: product.supplier,
+                  warehouse: warehouse,
                 });
                 onOpenChange(false);
               }}

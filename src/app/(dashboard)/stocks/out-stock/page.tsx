@@ -11,6 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import dynamic from "next/dynamic";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -34,6 +41,8 @@ type CartItem = {
   unit?: string;
   quantity: number;
   unitPrice?: number;
+  warehouse: "warehouse-1" | "warehouse-2";
+  availableStock?: number;
 };
 
 type ProductsApiResponse = {
@@ -43,12 +52,14 @@ type ProductsApiResponse = {
     name: string;
     sku?: string;
     pricing?: { price?: number; quantity?: number };
+    warehouseStock?: { "warehouse-1": number; "warehouse-2": number };
   }>;
 };
 
 export default function Page() {
   const [qr, setQr] = React.useState("");
   const [cart, setCart] = React.useState<CartItem[]>([]);
+  const [warehouse, setWarehouse] = React.useState<"warehouse-1" | "warehouse-2">("warehouse-1");
   const [isPending, startTransition] = React.useTransition();
   const [committing, setCommitting] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -61,22 +72,46 @@ export default function Page() {
       sku?: string;
       price?: number;
       unit?: string;
+      warehouseStock?: { "warehouse-1": number; "warehouse-2": number };
     }) => {
       startTransition(() => {
         setCart((prev) => {
-          // When unit is specified (from QR code), match by both productId and unit
-          // Otherwise, match by productId only
-          const idx = p.unit
-            ? prev.findIndex(
-                (it) => it.productId === p.id && it.unit === p.unit
-              )
-            : prev.findIndex((it) => it.productId === p.id && !it.unit);
+          const availableInWarehouse = p.warehouseStock?.[warehouse] || 0;
+          
+          // Match by productId, unit, and warehouse
+          const idx = prev.findIndex(
+            (it) =>
+              it.productId === p.id &&
+              it.unit === p.unit &&
+              it.warehouse === warehouse
+          );
 
           if (idx >= 0) {
             const copy = [...prev];
-            copy[idx] = { ...copy[idx], quantity: copy[idx].quantity + 1 };
+            const newQuantity = copy[idx].quantity + 1;
+            
+            // Check if we exceed available stock
+            if (newQuantity > availableInWarehouse) {
+              const warehouseName = warehouse === "warehouse-1" ? "Main Warehouse" : "Secondary Warehouse";
+              toast.error("Insufficient stock", {
+                description: `Only ${availableInWarehouse} available in ${warehouseName}`,
+              });
+              return prev;
+            }
+            
+            copy[idx] = { ...copy[idx], quantity: newQuantity };
             return copy;
           }
+          
+          // Check stock for new item
+          if (availableInWarehouse < 1) {
+            const warehouseName = warehouse === "warehouse-1" ? "Main Warehouse" : "Secondary Warehouse";
+            toast.error("Out of stock", {
+              description: `No stock available in ${warehouseName}`,
+            });
+            return prev;
+          }
+          
           return [
             ...prev,
             {
@@ -86,12 +121,14 @@ export default function Page() {
               unit: p.unit,
               quantity: 1,
               unitPrice: p.price,
+              warehouse,
+              availableStock: availableInWarehouse,
             },
           ];
         });
       });
     },
-    [startTransition]
+    [warehouse, startTransition]
   );
 
   // Parse SASINV QR strings like:
@@ -134,7 +171,8 @@ export default function Page() {
         name: row.name,
         sku: row.sku,
         price: row?.pricing?.price,
-      } as { id: string; name: string; sku?: string; price?: number };
+        warehouseStock: row.warehouseStock,
+      } as { id: string; name: string; sku?: string; price?: number; warehouseStock?: { "warehouse-1": number; "warehouse-2": number } };
     } catch {
       return null;
     }
@@ -155,7 +193,8 @@ export default function Page() {
         name: chosen.name,
         sku: chosen.sku,
         price: chosen?.pricing?.price,
-      } as { id: string; name: string; sku?: string; price?: number };
+        warehouseStock: chosen.warehouseStock,
+      } as { id: string; name: string; sku?: string; price?: number; warehouseStock?: { "warehouse-1": number; "warehouse-2": number } };
     } catch {
       return null;
     }
@@ -223,8 +262,20 @@ export default function Page() {
   const increment = (index: number) => {
     startTransition(() => {
       setCart((prev) => {
+        const item = prev[index];
+        const newQuantity = item.quantity + 1;
+        
+        // Validate against available stock
+        if (item.availableStock !== undefined && newQuantity > item.availableStock) {
+          const warehouseName = item.warehouse === "warehouse-1" ? "Main Warehouse" : "Secondary Warehouse";
+          toast.error("Insufficient stock", {
+            description: `Only ${item.availableStock} available in ${warehouseName}`,
+          });
+          return prev;
+        }
+        
         const copy = [...prev];
-        copy[index] = { ...copy[index], quantity: copy[index].quantity + 1 };
+        copy[index] = { ...copy[index], quantity: newQuantity };
         return copy;
       });
     });
@@ -267,8 +318,18 @@ export default function Page() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        const msg = err?.error || `Request failed (${res.status})`;
-        throw new Error(msg);
+        
+        // Handle detailed error messages
+        if (err?.details && Array.isArray(err.details)) {
+          toast.error(err.error || "Failed to update stocks", {
+            description: err.details.join("; "),
+          });
+        } else {
+          const msg = err?.error || `Request failed (${res.status})`;
+          toast.error("Failed to update stocks", { description: msg });
+        }
+        setCommitting(false);
+        return;
       }
       const json = await res.json();
       toast.success("Stocks updated", {
@@ -287,6 +348,28 @@ export default function Page() {
 
   return (
     <div className="flex flex-1 min-h-0 flex-col gap-4 p-4 h-[calc(100vh-4rem)]">
+      {/* Warehouse Selection */}
+      <div className="rounded-xl border p-4">
+        <div className="flex items-center gap-4">
+          <div className="text-sm font-medium">Warehouse:</div>
+          <Select
+            value={warehouse}
+            onValueChange={(v) => setWarehouse(v as "warehouse-1" | "warehouse-2")}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="warehouse-1">Main Warehouse</SelectItem>
+              <SelectItem value="warehouse-2">Secondary Warehouse</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="text-xs text-muted-foreground">
+            Stock will be deducted from this warehouse
+          </div>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3 h-full min-h-0">
         {/* Left: QR + Product Search */}
         <div className="md:col-span-2 flex min-h-0 flex-col gap-4">
@@ -327,6 +410,7 @@ export default function Page() {
                     name: p.name,
                     sku: p.sku,
                     price: p.pricing?.price,
+                    warehouseStock: (p as { warehouseStock?: { "warehouse-1": number; "warehouse-2": number } }).warehouseStock,
                   });
                 }}
               />
@@ -349,6 +433,7 @@ export default function Page() {
                   <TableHead>Product</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Unit</TableHead>
+                  <TableHead>Warehouse</TableHead>
                   <TableHead className="w-[160px]">Quantity</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
@@ -356,13 +441,13 @@ export default function Page() {
               <TableBody>
                 {cart.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-20 text-center">
+                    <TableCell colSpan={6} className="h-20 text-center">
                       No items yet. Scan or search to add.
                     </TableCell>
                   </TableRow>
                 ) : (
                   cart.map((it, idx) => (
-                    <TableRow key={`${it.productId}-${it.unit || "default"}-${idx}`}>
+                    <TableRow key={`${it.productId}-${it.unit || "default"}-${it.warehouse}-${idx}`}>
                       <TableCell className="font-medium">{it.name}</TableCell>
                       <TableCell>{it.sku || "-"}</TableCell>
                       <TableCell>
@@ -375,30 +460,42 @@ export default function Page() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => decrement(idx)}
-                            disabled={isPending}
-                          >
-                            −
-                          </Button>
-                          <Input
-                            className="h-9 w-16 text-center cursor-default select-none"
-                            type="text"
-                            readOnly
-                            value={it.quantity}
+                        <span className="text-xs font-medium px-2 py-1 rounded-md bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                          {it.warehouse === "warehouse-1" ? "Main" : "Secondary"}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => decrement(idx)}
+                              disabled={isPending}
+                            >
+                              −
+                            </Button>
+                            <Input
+                              className="h-9 w-16 text-center cursor-default select-none"
+                              type="text"
+                              readOnly
+                              value={it.quantity}
                             onKeyDown={(e) => e.preventDefault()}
                           />
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => increment(idx)}
-                            disabled={isPending}
-                          >
-                            +
-                          </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => increment(idx)}
+                              disabled={isPending}
+                            >
+                              +
+                            </Button>
+                          </div>
+                          {it.availableStock !== undefined && (
+                            <div className="text-xs text-muted-foreground">
+                              Available: {it.availableStock}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right">

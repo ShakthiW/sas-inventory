@@ -16,6 +16,7 @@ const stockLineItemSchema = z.object({
   subCategory: z.string().optional(),
   brand: z.string().optional(),
   supplier: z.string().optional(),
+  warehouse: z.enum(["warehouse-1", "warehouse-2"]),
 });
 
 const stockPayloadSchema = z.object({

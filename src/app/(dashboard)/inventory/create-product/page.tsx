@@ -33,6 +33,7 @@ export default function Page() {
             unit: pricing.unit,
             qtyAlert: pricing.qtyAlert,
             price: pricing.price,
+            warehouse: pricing.warehouse,
           }
         : {},
       images: [],
