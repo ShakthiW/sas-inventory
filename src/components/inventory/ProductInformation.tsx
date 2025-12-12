@@ -35,7 +35,9 @@ const formSchema = z.object({
   category: z.string().optional(),
   subCategory: z.string().optional(),
   brand: z.string().optional(),
+  supplier: z.string().optional(),
   unit: z.string().optional(),
+  qrSize: z.enum(["100x50", "100x150", "25x25"]).optional(),
   description: z.string().optional(),
 });
 
@@ -46,6 +48,7 @@ type ProductInformationProps = {
 export default function MyForm({ onChange }: ProductInformationProps) {
   const [categoryOptions, setCategoryOptions] = React.useState<Option[]>([]);
   const [brandOptions, setBrandOptions] = React.useState<Option[]>([]);
+  const [supplierOptions, setSupplierOptions] = React.useState<Option[]>([]);
   const [subCategoryOptions, setSubCategoryOptions] = React.useState<Option[]>(
     []
   );
@@ -60,7 +63,9 @@ export default function MyForm({ onChange }: ProductInformationProps) {
       category: "",
       subCategory: "",
       brand: "",
+      supplier: "",
       unit: "",
+      qrSize: "100x50",
       description: "",
     },
   });
@@ -78,6 +83,32 @@ export default function MyForm({ onChange }: ProductInformationProps) {
 
   const watchedName = form.watch("name");
   const watchedCategory = form.watch("category");
+  const watchedSubCategory = form.watch("subCategory");
+  const watchedBrand = form.watch("brand");
+
+  // Auto-generate product name from Brand - Category - Subcategory
+  useEffect(() => {
+    const brand = brandOptions.find(b => b.value === watchedBrand)?.label || "";
+    const category = categoryOptions.find(c => c.value === watchedCategory)?.label || "";
+    const subCategory = subCategoryOptions.find(s => s.value === watchedSubCategory)?.label || "";
+    
+    // Only auto-generate if we have at least brand and category
+    if (brand && category) {
+      const parts = [brand, category];
+      if (subCategory) {
+        parts.push(subCategory);
+      }
+      const generatedName = parts.join(" - ");
+      
+      // Only set if the current name is empty or was previously auto-generated
+      const currentName = form.getValues("name");
+      const shouldUpdate = !currentName || currentName.includes(" - ");
+      
+      if (shouldUpdate) {
+        form.setValue("name", generatedName, { shouldValidate: true });
+      }
+    }
+  }, [watchedBrand, watchedCategory, watchedSubCategory, brandOptions, categoryOptions, subCategoryOptions, form]);
 
   useEffect(() => {
     if (typeof watchedName === "string") {
@@ -97,19 +128,22 @@ export default function MyForm({ onChange }: ProductInformationProps) {
     return () => subscription.unsubscribe();
   }, [form, onChange]);
 
-  // Fetch categories and brands once
+  // Fetch categories, brands, and suppliers once
   useEffect(() => {
     let mounted = true;
     const run = async () => {
       try {
-        const [catRes, brandRes] = await Promise.all([
+        const [catRes, brandRes, supplierRes] = await Promise.all([
           fetch("/api/inventory/categories?limit=200&sort=name&dir=asc"),
           fetch("/api/inventory/brands?limit=200&sort=name&dir=asc"),
+          fetch("/api/inventory/suppliers?limit=200&sort=name&dir=asc"),
         ]);
         const catJson = await catRes.json();
         const brandJson = await brandRes.json();
+        const supplierJson = await supplierRes.json();
         type CategoryRow = { id?: string; _id?: string; name: string };
         type BrandRow = { id?: string; _id?: string; name: string };
+        type SupplierRow = { id?: string; _id?: string; name: string };
         const cats: Option[] = ((catJson?.data as CategoryRow[]) || [])
           .map((c) => {
             const id = (c.id || c._id) as string | undefined;
@@ -122,9 +156,16 @@ export default function MyForm({ onChange }: ProductInformationProps) {
             return id ? { value: id, label: b.name } : null;
           })
           .filter((v): v is Option => v !== null);
+        const suppliers: Option[] = ((supplierJson?.data as SupplierRow[]) || [])
+          .map((s) => {
+            const id = (s.id || s._id) as string | undefined;
+            return id ? { value: id, label: s.name } : null;
+          })
+          .filter((v): v is Option => v !== null);
         if (mounted) {
           setCategoryOptions(cats);
           setBrandOptions(brands);
+          setSupplierOptions(suppliers);
         }
       } catch {
         // ignore for now
@@ -242,7 +283,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                 <FormItem>
                   <FormLabel>Product Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Product name" type="text" {...field} />
+                    <Input placeholder="Product name" type="text" {...field} value={form.getValues("name")}/>
                   </FormControl>
 
                   <FormMessage />
@@ -383,6 +424,62 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                           {brand.label}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="col-span-6">
+            <FormField
+              control={form.control}
+              name="supplier"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Supplier</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a supplier" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {supplierOptions.map((supplier) => (
+                        <SelectItem key={supplier.value} value={supplier.value}>
+                          {supplier.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-6">
+            <FormField
+              control={form.control}
+              name="qrSize"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>QR Code Size</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select QR code size" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="100x50">100x50 mm</SelectItem>
+                      <SelectItem value="100x150">100x150 mm</SelectItem>
+                      <SelectItem value="25x25">25x25 mm</SelectItem>
                     </SelectContent>
                   </Select>
 

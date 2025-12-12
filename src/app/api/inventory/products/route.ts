@@ -4,17 +4,12 @@ import type { NextRequest } from "next/server";
 import { ObjectId } from "mongodb";
 
 // Zod schema mirroring our frontend forms
-const productTypeEnum = z
-  .enum(["single-product", "variable-product", "bundle-product"]) // keep in sync with ProductType
-  .optional();
-
 const pricingSchema = z
   .object({
-    productType: productTypeEnum,
     quantity: z.coerce.number().min(0).optional(),
-    unit: z.string().optional(),
     qtyAlert: z.coerce.number().min(0).optional(),
     price: z.coerce.number().min(0).optional(),
+    warehouse: z.enum(["warehouse-1", "warehouse-2"]).optional(),
   })
   .optional();
 
@@ -25,7 +20,9 @@ const productSchema = z.object({
   category: z.string().optional(),
   subCategory: z.string().optional(),
   brand: z.string().optional(),
+  supplier: z.string().optional(),
   unit: z.string().optional(),
+  qrSize: z.enum(["100x50", "100x150", "25x25"]).optional(),
   description: z.string().optional(),
   pricing: pricingSchema,
   images: z.array(z.string()).optional(), // image URLs or paths if provided later
@@ -67,15 +64,65 @@ export async function GET(request: NextRequest) {
       }
 
       const doc = await collection.findOne({ _id: new ObjectId(id) });
-      const data = doc
-        ? [
-            {
-              ...doc,
-              id: doc._id?.toString(),
-              _id: undefined,
-            },
-          ]
-        : [];
+      
+      if (!doc) {
+        return Response.json({
+          data: [],
+          meta: {
+            total: 0,
+            page: 1,
+            limit: 1,
+            pages: 1,
+            hasNext: false,
+            hasPrev: false,
+          },
+        });
+      }
+
+      // Calculate warehouse stock for this product
+      const batches = db.collection("stock_batches");
+      const batchDocs = await batches.find({}).toArray();
+      
+      const warehouseStock = { "warehouse-1": 0, "warehouse-2": 0 };
+      const productIdStr = doc._id?.toString();
+
+      batchDocs.forEach((batch) => {
+        const items = batch.items as Array<{
+          productId: string;
+          quantity: number;
+          warehouse?: "warehouse-1" | "warehouse-2";
+        }>;
+
+        if (Array.isArray(items)) {
+          items.forEach((item) => {
+            if (item.productId === productIdStr) {
+              const warehouse = item.warehouse || "warehouse-1";
+              const qty = item.quantity || 0;
+
+              if (batch.type === "in") {
+                warehouseStock[warehouse] += qty;
+              } else if (batch.type === "out") {
+                warehouseStock[warehouse] -= qty;
+              }
+            }
+          });
+        }
+      });
+
+      const totalStock = warehouseStock["warehouse-1"] + warehouseStock["warehouse-2"];
+
+      const data = [
+        {
+          ...doc,
+          id: doc._id?.toString(),
+          _id: undefined,
+          warehouseStock,
+          pricing: {
+            ...doc.pricing,
+            quantity: totalStock,
+          },
+        },
+      ];
 
       return Response.json({
         data,
@@ -157,8 +204,55 @@ export async function GET(request: NextRequest) {
     .limit(limit)
     .toArray();
 
+  // Calculate warehouse-specific stock from stock_batches
+  const productIds = docs
+    .map((d) => d._id)
+    .filter((id): id is ObjectId => !!id);
+  const batches = db.collection("stock_batches");
+
+  // Aggregate stock by product and warehouse
+  const warehouseStockMap: Record<
+    string,
+    { "warehouse-1": number; "warehouse-2": number }
+  > = {};
+
+  if (productIds.length > 0) {
+    const batchDocs = await batches.find({}).toArray();
+
+    batchDocs.forEach((batch) => {
+      const items = batch.items as Array<{
+        productId: string;
+        quantity: number;
+        warehouse?: "warehouse-1" | "warehouse-2";
+      }>;
+
+      if (Array.isArray(items)) {
+        items.forEach((item) => {
+          const prodIdStr = item.productId;
+          const warehouse = item.warehouse || "warehouse-1"; // Default to warehouse-1 for old records
+          const qty = item.quantity || 0;
+
+          if (!warehouseStockMap[prodIdStr]) {
+            warehouseStockMap[prodIdStr] = {
+              "warehouse-1": 0,
+              "warehouse-2": 0,
+            };
+          }
+
+          // Add for "in" type, subtract for "out" type
+          if (batch.type === "in") {
+            warehouseStockMap[prodIdStr][warehouse] += qty;
+          } else if (batch.type === "out") {
+            warehouseStockMap[prodIdStr][warehouse] -= qty;
+          }
+        });
+      }
+    });
+  }
+
   const categoryIdStrings = new Set<string>();
   const brandIdStrings = new Set<string>();
+  const supplierIdStrings = new Set<string>();
 
   docs.forEach((doc) => {
     const categoryValue = doc.category;
@@ -178,6 +272,15 @@ export async function GET(request: NextRequest) {
         brandIdStrings.add(brandValue);
       }
     }
+
+    const supplierValue = doc.supplier;
+    if (supplierValue) {
+      if (supplierValue instanceof ObjectId) {
+        supplierIdStrings.add(supplierValue.toString());
+      } else if (typeof supplierValue === "string") {
+        supplierIdStrings.add(supplierValue);
+      }
+    }
   });
 
   const categoryObjectIds = [...categoryIdStrings]
@@ -186,15 +289,15 @@ export async function GET(request: NextRequest) {
   const brandObjectIds = [...brandIdStrings]
     .filter((id) => ObjectId.isValid(id))
     .map((id) => new ObjectId(id));
+  const supplierObjectIds = [...supplierIdStrings]
+    .filter((id) => ObjectId.isValid(id))
+    .map((id) => new ObjectId(id));
 
   const categoryMap: Record<string, string> = {};
   if (categoryObjectIds.length) {
     const categoriesCollection = db.collection("product_categories");
     const categories = await categoriesCollection
-      .find(
-        { _id: { $in: categoryObjectIds } },
-        { projection: { name: 1 } }
-      )
+      .find({ _id: { $in: categoryObjectIds } }, { projection: { name: 1 } })
       .toArray();
     categories.forEach((cat) => {
       if (cat?._id) {
@@ -207,14 +310,24 @@ export async function GET(request: NextRequest) {
   if (brandObjectIds.length) {
     const brandsCollection = db.collection("brands");
     const brands = await brandsCollection
-      .find(
-        { _id: { $in: brandObjectIds } },
-        { projection: { name: 1 } }
-      )
+      .find({ _id: { $in: brandObjectIds } }, { projection: { name: 1 } })
       .toArray();
     brands.forEach((brand) => {
       if (brand?._id) {
         brandMap[brand._id.toString()] = brand.name;
+      }
+    });
+  }
+
+  const supplierMap: Record<string, string> = {};
+  if (supplierObjectIds.length) {
+    const suppliersCollection = db.collection("suppliers");
+    const suppliers = await suppliersCollection
+      .find({ _id: { $in: supplierObjectIds } }, { projection: { name: 1 } })
+      .toArray();
+    suppliers.forEach((supplier) => {
+      if (supplier?._id) {
+        supplierMap[supplier._id.toString()] = supplier.name;
       }
     });
   }
@@ -224,14 +337,20 @@ export async function GET(request: NextRequest) {
       d.category instanceof ObjectId
         ? d.category.toString()
         : typeof d.category === "string" && ObjectId.isValid(d.category)
-          ? d.category
-          : undefined;
+        ? d.category
+        : undefined;
     const brandId =
       d.brand instanceof ObjectId
         ? d.brand.toString()
         : typeof d.brand === "string" && ObjectId.isValid(d.brand)
-          ? d.brand
-          : undefined;
+        ? d.brand
+        : undefined;
+    const supplierId =
+      d.supplier instanceof ObjectId
+        ? d.supplier.toString()
+        : typeof d.supplier === "string" && ObjectId.isValid(d.supplier)
+        ? d.supplier
+        : undefined;
 
     const categoryName =
       (categoryId && categoryMap[categoryId]
@@ -245,6 +364,22 @@ export async function GET(request: NextRequest) {
       (typeof d.brand === "string" && !ObjectId.isValid(d.brand)
         ? d.brand
         : undefined);
+    const supplierName =
+      (supplierId && supplierMap[supplierId]
+        ? supplierMap[supplierId]
+        : undefined) ??
+      (typeof d.supplier === "string" && !ObjectId.isValid(d.supplier)
+        ? d.supplier
+        : undefined);
+
+    const productIdStr = d._id?.toString();
+    const warehouseStock =
+      productIdStr && warehouseStockMap[productIdStr]
+        ? warehouseStockMap[productIdStr]
+        : { "warehouse-1": 0, "warehouse-2": 0 };
+
+    // Calculate total stock from warehouse stocks
+    const totalStock = warehouseStock["warehouse-1"] + warehouseStock["warehouse-2"];
 
     return {
       ...d,
@@ -252,8 +387,15 @@ export async function GET(request: NextRequest) {
       _id: undefined,
       categoryId: categoryId ?? undefined,
       brandId: brandId ?? undefined,
+      supplierId: supplierId ?? undefined,
       category: categoryName ?? null,
       brand: brandName ?? null,
+      supplier: supplierName ?? null,
+      warehouseStock,
+      pricing: {
+        ...d.pricing,
+        quantity: totalStock, // Override with calculated total from batches
+      },
     };
   });
 
@@ -296,6 +438,11 @@ export async function POST(request: Request) {
     ]);
 
     const now = new Date();
+
+    // Extract warehouse from pricing before storing (warehouse is only used for initial stock batch)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { warehouse, ...pricingWithoutWarehouse } = payload.pricing ?? {};
+
     const doc = {
       name: payload.name,
       slug: payload.slug,
@@ -303,17 +450,59 @@ export async function POST(request: Request) {
       category: payload.category,
       subCategory: payload.subCategory,
       brand: payload.brand,
-      unit: payload.unit,
+      supplier: payload.supplier,
+      unit: "Piece", // Default unit
+      qrSize: payload.qrSize,
       description: payload.description,
-      pricing: payload.pricing ?? {},
+      pricing:
+        Object.keys(pricingWithoutWarehouse).length > 0
+          ? pricingWithoutWarehouse
+          : {
+              quantity: 0,
+              unit: "Piece",
+              qtyAlert: payload.pricing?.qtyAlert,
+              price: payload.pricing?.price,
+            },
       images: payload.images ?? [],
       createdAt: now,
       updatedAt: now,
     };
 
     const result = await collection.insertOne(doc as Record<string, unknown>);
+    const insertedId = result.insertedId;
+
+    // Create initial stock batch if quantity and warehouse are provided
+    if (
+      payload.pricing?.quantity &&
+      payload.pricing.quantity > 0 &&
+      payload.pricing.warehouse
+    ) {
+      const stockBatchesCollection = db.collection("stock_batches");
+      const batchDoc = {
+        type: "in",
+        batchName: `Initial Stock - ${payload.sku}`,
+        items: [
+          {
+            productId: insertedId.toString(),
+            name: payload.name,
+            sku: payload.sku,
+            quantity: payload.pricing.quantity,
+            warehouse: payload.pricing.warehouse,
+            unit: "Piece",
+            unitPrice: payload.pricing.price ?? 0,
+          },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      await stockBatchesCollection.insertOne(
+        batchDoc as Record<string, unknown>
+      );
+    }
+
     return Response.json(
-      { insertedId: result.insertedId.toString() },
+      { insertedId: insertedId.toString() },
       { status: 201 }
     );
   } catch (error: unknown) {

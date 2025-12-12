@@ -1,9 +1,11 @@
 "use client";
 import React from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowUpDown } from "lucide-react";
 import DownloadOptionsDialog from "@/components/stock/DownloadOptionsDialog";
 
 type BatchListItem = {
@@ -17,6 +19,8 @@ type BatchListItem = {
 
 export default function Page() {
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [batches, setBatches] = React.useState<BatchListItem[]>([]);
@@ -24,6 +28,7 @@ export default function Page() {
 
   const page = Math.max(parseInt(params.get("page") || "1", 10), 1);
   const limit = Math.max(parseInt(params.get("limit") || "20", 10), 1);
+  const sort = params.get("sort") || "desc";
 
   React.useEffect(() => {
     let ignore = false;
@@ -31,7 +36,7 @@ export default function Page() {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`/api/stocks?page=${page}&limit=${limit}`);
+        const res = await fetch(`/api/stocks?page=${page}&limit=${limit}&sort=${sort}`);
         if (!res.ok) throw new Error("Failed to load batches");
         const json = (await res.json()) as { data: BatchListItem[] };
         if (!ignore) setBatches(json.data || []);
@@ -46,7 +51,7 @@ export default function Page() {
     return () => {
       ignore = true;
     };
-  }, [page, limit]);
+  }, [page, limit, sort]);
 
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
@@ -68,6 +73,26 @@ export default function Page() {
             : `${batches.length} batch${
                 batches.length === 1 ? "" : "es"
               } found`}
+        </div>
+        <div className="flex items-center gap-2">
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+          <Select
+            value={sort}
+            onValueChange={(value) => {
+              const newParams = new URLSearchParams(params.toString());
+              newParams.set("sort", value);
+              newParams.set("page", "1"); // Reset to first page when sorting changes
+              router.push(`${pathname}?${newParams.toString()}`);
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="desc">Newest</SelectItem>
+              <SelectItem value="asc">Oldest</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
