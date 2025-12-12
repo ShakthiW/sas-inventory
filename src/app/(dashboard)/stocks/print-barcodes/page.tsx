@@ -170,14 +170,14 @@ export default function Page() {
       <DownloadOptionsDialog
         open={!!downloadDialogBatch}
         onOpenChange={(open) => !open && setDownloadDialogBatch(null)}
-        onConfirm={(size, itemsPerRow) => {
+        onConfirm={(itemsPerRow) => {
           if (!downloadDialogBatch) return;
           const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
             downloadDialogBatch.id
-          )}&size=${size}&itemsPerRow=${itemsPerRow}`;
+          )}&itemsPerRow=${itemsPerRow}`;
           const a = document.createElement("a");
           a.href = url;
-          a.download = `batch_${downloadDialogBatch.id}_${size}.txt`;
+          a.download = `batch_${downloadDialogBatch.id}.txt`;
           document.body.appendChild(a);
           a.click();
           a.remove();
