@@ -34,7 +34,7 @@
     "lucide-react": "^0.539.0",
     "mongodb": "^6.19.0",
     "mongoose": "^8.19.0",
-    "next": "15.4.6",
+    "next": "15.4.10",
     "next-themes": "^0.4.6",
     "nodemailer": "^7.0.7",
     "print-js": "^1.6.0",
