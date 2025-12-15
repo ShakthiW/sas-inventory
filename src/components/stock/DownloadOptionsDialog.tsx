@@ -5,18 +5,11 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export type DownloadOptionsDialogProps = {
   open: boolean;
   onOpenChange(open: boolean): void;
-  onConfirm(size: string, itemsPerRow: number): void;
+  onConfirm(itemsPerRow: number): void;
 };
 
 export default function DownloadOptionsDialog({
@@ -24,20 +17,10 @@ export default function DownloadOptionsDialog({
   onOpenChange,
   onConfirm,
 }: DownloadOptionsDialogProps) {
-  const [size, setSize] = React.useState<string>("25x25");
-  const [itemsPerRow, setItemsPerRow] = React.useState<number>(4);
-
-  // Update default items per row when size changes
-  React.useEffect(() => {
-    if (size === "25x25") {
-      setItemsPerRow(4);
-    } else {
-      setItemsPerRow(2);
-    }
-  }, [size]);
+  const [itemsPerRow, setItemsPerRow] = React.useState<number>(2);
 
   const handleConfirm = () => {
-    onConfirm(size, itemsPerRow);
+    onConfirm(itemsPerRow);
     onOpenChange(false);
   };
 
@@ -50,26 +33,10 @@ export default function DownloadOptionsDialog({
             Download QR Labels
           </Dialog.Title>
           <Dialog.Description className="text-sm text-muted-foreground mt-2">
-            Select the label size and layout configuration for your printer.
+            Configure the layout for your printer. QR code sizes are automatically determined by each product&apos;s settings.
           </Dialog.Description>
 
           <div className="mt-4 space-y-4">
-            <div>
-              <Label htmlFor="size" className="text-sm font-medium">
-                Label Size
-              </Label>
-              <Select value={size} onValueChange={setSize}>
-                <SelectTrigger className="mt-1.5">
-                  <SelectValue placeholder="Select size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="25x25">25x25 mm (Small)</SelectItem>
-                  <SelectItem value="100x50">100x50 mm (Medium)</SelectItem>
-                  <SelectItem value="100x150">100x150 mm (Large)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             <div>
               <Label htmlFor="itemsPerRow" className="text-sm font-medium">
                 Items Per Row
