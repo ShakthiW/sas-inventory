@@ -38,6 +38,7 @@ const formSchema = z.object({
   supplier: z.string().optional(),
   unit: z.string().optional(),
   qrSize: z.enum(["100x50", "100x150", "25x25"]).optional(),
+  itemsPerRow: z.number().int().min(1).max(10).optional(),
   description: z.string().optional(),
 });
 
@@ -66,6 +67,7 @@ export default function MyForm({ onChange }: ProductInformationProps) {
       supplier: "",
       unit: "",
       qrSize: "100x50",
+      itemsPerRow: 2,
       description: "",
     },
   });
@@ -483,6 +485,31 @@ export default function MyForm({ onChange }: ProductInformationProps) {
                     </SelectContent>
                   </Select>
 
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="col-span-6">
+            <FormField
+              control={form.control}
+              name="itemsPerRow"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Items Per Row (Print Layout)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={10}
+                      placeholder="e.g., 2"
+                      {...field}
+                    />
+                  </FormControl>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Number of labels printed horizontally across the page
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

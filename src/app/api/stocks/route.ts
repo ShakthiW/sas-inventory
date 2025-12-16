@@ -135,19 +135,22 @@ export async function GET(request: NextRequest) {
       
       const productDocs = await products.find(
         { _id: { $in: productIds } },
-        { projection: { _id: 1, qrSize: 1 } }
+        { projection: { _id: 1, qrSize: 1, itemsPerRow: 1 } }
       ).toArray();
       
       const qrSizeMap = new Map<string, string>();
+      const itemsPerRowMap = new Map<string, number>();
       for (const p of productDocs) {
         const id = p._id instanceof ObjectId ? p._id.toString() : String(p._id);
         if (p.qrSize) qrSizeMap.set(id, String(p.qrSize));
+        if (p.itemsPerRow) itemsPerRowMap.set(id, Number(p.itemsPerRow));
       }
       
-      // Enrich items with qrSize
+      // Enrich items with qrSize and itemsPerRow
       const enrichedItems = items.map(item => ({
         ...item,
         qrSize: qrSizeMap.get(item.productId) || "100x50",
+        itemsPerRow: itemsPerRowMap.get(item.productId) || 2,
       }));
       
       return Response.json({
@@ -175,6 +178,37 @@ export async function GET(request: NextRequest) {
       .limit(limit)
       .toArray();
 
+    // Fetch product info including qrSize for all batches
+    const products = db.collection("products");
+    const allProductIds = new Set<string>();
+    for (const doc of docs) {
+      const rec = doc as unknown as { items?: unknown[] };
+      if (Array.isArray(rec.items)) {
+        for (const item of rec.items as StockLineItem[]) {
+          if (item.productId) allProductIds.add(item.productId);
+        }
+      }
+    }
+
+    const productObjectIds = Array.from(allProductIds).map(id => {
+      try {
+        return new ObjectId(id);
+      } catch {
+        return null;
+      }
+    }).filter((id): id is ObjectId => id !== null);
+
+    const productDocs = await products.find(
+      { _id: { $in: productObjectIds } },
+      { projection: { _id: 1, qrSize: 1 } }
+    ).toArray();
+
+    const productQrSizeMap = new Map<string, string>();
+    for (const p of productDocs) {
+      const id = p._id instanceof ObjectId ? p._id.toString() : String(p._id);
+      if (p.qrSize) productQrSizeMap.set(id, String(p.qrSize));
+    }
+
     const data = docs.map((d) => {
       const rec = d as unknown as {
         _id: ObjectId;
@@ -183,16 +217,31 @@ export async function GET(request: NextRequest) {
         batchName?: string;
         createdAt?: Date;
       };
+      
+      const items = Array.isArray(rec.items) ? (rec.items as StockLineItem[]) : [];
+      const uniqueProductIds = new Set(items.map(i => i.productId));
+      const productTypesCount = uniqueProductIds.size;
+      
+      // Determine label size
+      let labelSize: string | undefined;
+      if (productTypesCount === 1) {
+        const productId = Array.from(uniqueProductIds)[0];
+        const qrSize = productQrSizeMap.get(productId) || "100x50";
+        labelSize = `${qrSize} mm`;
+      } else if (productTypesCount > 1) {
+        const sizes = Array.from(uniqueProductIds)
+          .map(id => productQrSizeMap.get(id) || "100x50");
+        const uniqueSizes = new Set(sizes);
+        labelSize = uniqueSizes.size === 1 ? `${Array.from(uniqueSizes)[0]} mm` : "Multiple Label Sizes";
+      }
+      
       return {
         id: rec._id.toString(),
         type: rec.type ?? "in",
         batchName: rec.batchName,
-        itemsCount: Array.isArray(rec.items)
-          ? (rec.items as StockLineItem[]).reduce((sum: number, item: StockLineItem) => sum + (item.quantity || 0), 0)
-          : 0,
-        productTypesCount: Array.isArray(rec.items)
-          ? new Set((rec.items as StockLineItem[]).map((i) => i.productId)).size
-          : 0,
+        itemsCount: items.reduce((sum: number, item: StockLineItem) => sum + (item.quantity || 0), 0),
+        productTypesCount,
+        labelSize,
         createdAt: rec.createdAt ?? null,
       };
     });

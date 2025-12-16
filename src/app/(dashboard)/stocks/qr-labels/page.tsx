@@ -172,7 +172,14 @@ export default function Page() {
             acc[key].push(label);
             return acc;
           }, {} as Record<string, typeof labels>)
-        ).map(([productName, productLabels]) => (
+        ).map(([productName, productLabels]) => {
+          // Determine grid columns based on QR size (all items in a product group have same size)
+          const qrSize = productLabels[0]?.item.qrSize || "100x50";
+          const gridCols = qrSize === "25x25" 
+            ? "grid-cols-1 sm:grid-cols-3 lg:grid-cols-5" 
+            : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+          
+          return (
           <div key={productName} className="rounded-xl border bg-card text-card-foreground shadow-sm overflow-hidden">
             <div className="border-b bg-muted/40 px-6 py-4">
               <div className="flex items-center justify-between">
@@ -184,7 +191,7 @@ export default function Page() {
             </div>
             
             <div className="p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className={`grid ${gridCols} gap-6`}>
                 {productLabels.map(({ key, item }) => {
                   const sizeClass = getQrSizeClass(item.qrSize);
                   const displaySize = getQrDisplaySize(item.qrSize);
@@ -233,7 +240,7 @@ export default function Page() {
               </div>
             </div>
           </div>
-        ))}
+        );})}
       </div>
 
       {/* Actual Print Output (Hidden on Screen) */}

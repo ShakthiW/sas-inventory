@@ -68,6 +68,7 @@ export type ProductInformationForm = {
   supplier?: string;
   unit?: string;
   qrSize?: QRCodeSize;
+  itemsPerRow?: number;
   description?: string;
 };
 
@@ -380,4 +381,5 @@ export type StockLineItem = {
   supplier?: string;
   warehouse: WarehouseId; // Which warehouse the stock is going to
   qrSize?: QRCodeSize; // QR code size for this product
+  itemsPerRow?: number; // Items per row for print layout
 };
