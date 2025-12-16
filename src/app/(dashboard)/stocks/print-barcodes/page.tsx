@@ -14,6 +14,7 @@ type BatchListItem = {
   batchName?: string;
   itemsCount: number;
   productTypesCount?: number;
+  labelSize?: string;
   createdAt: string | null;
 };
 
@@ -133,6 +134,14 @@ export default function Page() {
                       {b.productTypesCount !== 1 ? "s" : ""}
                     </>
                   )}
+                  {b.labelSize && (
+                    <>
+                      {" · "}
+                      <span className="text-sm text-muted-foreground">
+                        {b.labelSize}
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="text-xs">
                   {b.createdAt
@@ -170,11 +179,11 @@ export default function Page() {
       <DownloadOptionsDialog
         open={!!downloadDialogBatch}
         onOpenChange={(open) => !open && setDownloadDialogBatch(null)}
-        onConfirm={(itemsPerRow) => {
+        onConfirm={() => {
           if (!downloadDialogBatch) return;
           const url = `/api/stocks/batches/export?batchId=${encodeURIComponent(
             downloadDialogBatch.id
-          )}&itemsPerRow=${itemsPerRow}`;
+          )}`;
           const a = document.createElement("a");
           a.href = url;
           a.download = `batch_${downloadDialogBatch.id}.txt`;

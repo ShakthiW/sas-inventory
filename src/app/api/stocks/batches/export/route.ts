@@ -15,6 +15,8 @@ type ProductPick = {
   subCategory?: string;
   brand?: string;
   unit?: string;
+  qrSize?: string;
+  itemsPerRow?: number;
 };
 
 export async function GET(request: NextRequest) {
@@ -70,6 +72,8 @@ export async function GET(request: NextRequest) {
               subCategory: 1,
               brand: 1,
               unit: 1,
+              qrSize: 1,
+              itemsPerRow: 1,
             },
           }
         )
@@ -81,8 +85,8 @@ export async function GET(request: NextRequest) {
     productById.set(String(p._id), p);
   }
 
-  // Build label data: QR encodes id|name|unit; text shows name and product ID
-  const labels: LabelData[] = items.map((it) => {
+  // Build label data with product-specific settings
+  const labels: (LabelData & { qrSize?: string; itemsPerRow?: number })[] = items.map((it) => {
     const productIdStr = it.productId ? String(it.productId) : "";
     const p = productIdStr ? productById.get(productIdStr) : undefined;
     const id = (productIdStr || (p?._id ? String(p._id) : "")).toString();
@@ -91,22 +95,39 @@ export async function GET(request: NextRequest) {
     const name = rawName || fallbackName;
     const unit = (p?.unit ?? it.unit ?? "").toString();
     const qr = [id, name, unit].join("|");
-    return { qr, name, id };
+    const qrSize = p?.qrSize || "100x50";
+    const itemsPerRow = p?.itemsPerRow || 2;
+    return { qr, name, id, qrSize, itemsPerRow };
   });
 
-  const sizeParam = request.nextUrl.searchParams.get("size");
-  const size = (
-    ["25x25", "100x50", "100x150"].includes(sizeParam || "")
-      ? sizeParam
-      : "25x25"
-  ) as "25x25" | "100x50" | "100x150";
+  // Group labels by qrSize and itemsPerRow to generate separate sections
+  const groupedLabels = new Map<string, typeof labels>();
+  for (const label of labels) {
+    const key = `${label.qrSize}_${label.itemsPerRow}`;
+    if (!groupedLabels.has(key)) {
+      groupedLabels.set(key, []);
+    }
+    groupedLabels.get(key)!.push(label);
+  }
 
-  const itemsPerRowParam = request.nextUrl.searchParams.get("itemsPerRow");
-  const itemsPerRow = itemsPerRowParam ? parseInt(itemsPerRowParam, 10) : undefined;
+  // Generate TSC output for each group
+  const txtSections: string[] = [];
+  for (const [key, groupLabels] of groupedLabels.entries()) {
+    const [qrSize, itemsPerRowStr] = key.split('_');
+    const size = (
+      ["25x25", "100x50", "100x150"].includes(qrSize)
+        ? qrSize
+        : "100x50"
+    ) as "25x25" | "100x50" | "100x150";
+    const itemsPerRow = parseInt(itemsPerRowStr, 10) || 2;
+    
+    const txt = buildTscTxtFromLabelData(groupLabels, { itemsPerRow }, size);
+    txtSections.push(txt);
+  }
 
-  const txt = buildTscTxtFromLabelData(labels, { itemsPerRow }, size);
-  const filename = `batch_${batchId}_${size}.txt`;
-  return new Response(txt, {
+  const finalTxt = txtSections.join('\n\n');
+  const filename = `batch_${batchId}.txt`;
+  return new Response(finalTxt, {
     status: 200,
     headers: {
       "content-type": "text/plain; charset=utf-8",
